@@ -11,6 +11,8 @@
     "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
+    "@iconify-json/game-icons": "^1.2.3",
+    "@iconify/react": "^6.0.2",
     "@radix-ui/react-slot": "^1.0.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -23,11 +25,11 @@
   "devDependencies": {
     "@eslint/js": "^8.55.0",
     "@testing-library/react": "^14.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.15.0",
-    "@typescript-eslint/parser": "^6.15.0",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.55.0",

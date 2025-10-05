@@ -9,7 +9,7 @@ A single-player, seven-seat Blackjack table implemented with a pure TypeScript e
 - ✅ Comprehensive action validation (hit, stand, double, split, surrender, insurance)
 - ✅ Multi-seat play (up to seven simultaneous hands sharing a bankroll)
 - ✅ Persistent €100 bankroll stored in `localStorage`
-- ✅ Tailwind + shadcn/ui interface with clear totals, flags, and rule badges
+- ✅ Tailwind + shadcn/ui casino table with felt surface, curved payouts text, chip tray, and contextual action bar
 - ✅ Extensive unit tests covering totals, splits, doubles, surrender, insurance, payouts, and dealer logic
 
 ## Getting Started
@@ -75,7 +75,7 @@ These modules are pure TypeScript (no React). React components interact through 
 ## UI Structure
 
 - `src/store/useGameStore.ts` – Zustand store with hydration (`localStorage`), error handling, and action wrappers.
-- `src/components/` – React components for seats, dealer area, control bar, rule badges, and shadcn/ui primitives.
+- `src/components/` – React components, including the casino table surface (`table/` folder), rule badges, and shadcn/ui primitives.
 - `src/pages/App.tsx` – top-level page wiring state and layout.
 - `src/services/AudioService.ts` – stubbed audio service ready for future SFX.
 
@@ -104,6 +104,13 @@ Run all tests with `npm run test` (uses the jsdom environment).
 - **Set table limits**: configure `minBet` / `maxBet`.
 
 After editing, no rebuild is required—Vite hot reloads rule changes.
+
+## Casino Table UI
+
+- **Dependencies**: the felt table uses `@iconify/react` and `@iconify-json/game-icons` for shoe/discard icons and card backs. Install with `npm install @iconify/react @iconify-json/game-icons` (already included).
+- **Colours & layout**: tweak felt, chip, and gold accents in `src/theme/palette.ts`. Seat arcs, dealer area, and curved text paths live in `src/components/table/coords.ts`.
+- **Chip interaction**: pick a denomination from the chip tray (bottom toolbar), then left-click a bet circle to add that chip or right-click to remove it (context menu is suppressed). Seats auto-sit when you place the first chip and can be left via the “Leave” control during betting.
+- **Icons**: all decorative icons (shoe, discard tray, card back emblem) are sourced from the `game-icons` Iconify collection.
 
 ## Limitations & Roadmap
 
