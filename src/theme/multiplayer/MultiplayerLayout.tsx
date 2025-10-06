@@ -1,15 +1,16 @@
 import React from "react";
-import type { GameState } from "../engine/types";
-import { formatCurrency } from "../utils/currency";
-import { RuleBadges } from "./RuleBadges";
-import { TableLayout } from "./table/TableLayout";
-import type { ChipDenomination } from "../theme/palette";
+import type { GameState } from "../../engine/types";
+import { formatCurrency } from "../../utils/currency";
+import { RuleBadges } from "../../components/RuleBadges";
+import { TableLayout } from "../../components/table/TableLayout";
+import type { ChipDenomination } from "../../theme/palette";
 
-interface TableProps {
+interface MultiplayerLayoutProps {
   game: GameState;
   actions: {
     sit: (seatIndex: number) => void;
     leave: (seatIndex: number) => void;
+    setBet: (seatIndex: number, amount: number) => void;
     addChip: (seatIndex: number, denom: number) => void;
     removeChipValue: (seatIndex: number, denom: number) => void;
     removeTopChip: (seatIndex: number) => void;
@@ -36,7 +37,7 @@ const penetrationPercentage = (game: GameState): string => {
   return `${Math.round(penetration * 100)}%`;
 };
 
-export const Table: React.FC<TableProps> = ({ game, actions }) => {
+export const MultiplayerLayout: React.FC<MultiplayerLayoutProps> = ({ game, actions }) => {
   const [activeChip, setActiveChip] = React.useState<ChipDenomination>(25);
   const headerRef = React.useRef<HTMLDivElement | null>(null);
   const [viewportHeight, setViewportHeight] = React.useState(

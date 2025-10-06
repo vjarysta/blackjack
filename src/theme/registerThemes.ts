@@ -1,0 +1,2 @@
+import "./solo";
+import "./multiplayer";

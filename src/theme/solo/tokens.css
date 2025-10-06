@@ -1,0 +1,140 @@
+:root[data-theme="solo"] {
+  --bg: #0c1f18;
+  --bg-elev: #0f261e;
+  --line: #b8952a;
+  --text-hi: #f3efe3;
+  --text-lo: #a8b3a7;
+  --accent: #d8b64c;
+  --chip-green: #1e3a2f;
+  --danger: #d75a5a;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --shadow-1: 0 6px 24px rgba(0, 0, 0, 0.35);
+  --glow: 0 0 0 1px rgba(184, 149, 42, 0.35), 0 0 18px rgba(184, 149, 42, 0.25);
+  --gap: 12px;
+  --gap-lg: 20px;
+  --btn-h: 48px;
+  --chip-size: 48px;
+  --font-ui: ui-sans-serif, system-ui, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  --caps-track: 0.08em;
+}
+
+[data-theme="solo"] body {
+  background: radial-gradient(circle at top, #123327 0%, #0c1f18 60%, #07140f 100%);
+  color: var(--text-hi);
+  font-family: var(--font-ui);
+}
+
+[data-theme="solo"] .solo-surface {
+  background: linear-gradient(180deg, rgba(18, 51, 39, 0.75) 0%, rgba(12, 31, 24, 0.95) 100%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+  border: 1px solid rgba(216, 182, 76, 0.15);
+}
+
+[data-theme="solo"] .solo-hud {
+  backdrop-filter: blur(10px);
+  background: rgba(12, 31, 24, 0.85);
+  border-radius: var(--radius);
+  border: 1px solid rgba(184, 149, 42, 0.25);
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="solo"] .solo-action-bar {
+  background: rgba(12, 31, 24, 0.9);
+  border: 1px solid rgba(216, 182, 76, 0.2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+}
+
+[data-theme="solo"] .solo-chip-button {
+  width: var(--chip-size);
+  height: var(--chip-size);
+  border-radius: 9999px;
+  border: 2px solid rgba(216, 182, 76, 0.35);
+  background: var(--chip-green);
+  color: var(--text-hi);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="solo"] .solo-chip-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme="solo"] .solo-chip-button[data-active="true"] {
+  box-shadow: 0 0 0 2px rgba(216, 182, 76, 0.65), 0 12px 36px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="solo"] .solo-primary {
+  background: var(--accent);
+  color: #0b150f;
+}
+
+[data-theme="solo"] .solo-primary:hover {
+  background: #e8cb74;
+}
+
+[data-theme="solo"] .solo-secondary {
+  background: rgba(216, 182, 76, 0.12);
+  color: var(--text-hi);
+  border: 1px solid rgba(216, 182, 76, 0.32);
+}
+
+[data-theme="solo"] .solo-secondary:hover {
+  background: rgba(216, 182, 76, 0.2);
+}
+
+[data-theme="solo"] .solo-secondary[disabled] {
+  opacity: 0.35;
+}
+
+[data-theme="solo"] .solo-control {
+  height: var(--btn-h);
+  padding: 0 22px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: var(--caps-track);
+  text-transform: uppercase;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-theme="solo"] .solo-control:focus-visible {
+  outline: 2px solid rgba(216, 182, 76, 0.65);
+  outline-offset: 2px;
+}
+
+[data-theme="solo"] .solo-control:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+[data-theme="solo"] .solo-player-hand[data-active="true"] {
+  box-shadow: var(--glow);
+  transform: translateY(-8px);
+}
+
+[data-theme="solo"] .solo-toast {
+  background: rgba(12, 31, 24, 0.9);
+  border: 1px solid rgba(216, 182, 76, 0.25);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  color: var(--text-hi);
+}
+
+[data-theme="solo"] .solo-stats-drawer {
+  background: rgba(12, 31, 24, 0.98);
+  border-left: 1px solid rgba(216, 182, 76, 0.2);
+  box-shadow: -18px 0 45px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="solo"] .solo-hud-reduced {
+  opacity: 0.65;
+  transition: opacity 0.3s ease;
+}
+
+[data-theme="solo"] .solo-hud-expanded {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
