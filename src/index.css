@@ -173,11 +173,11 @@ button:disabled {
 }
 
 .result-banner .result-label {
-  font-size: 0.9rem;
+  font-size: 1.05rem;
 }
 
 .result-banner .result-amount {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   opacity: 0.9;
 }
 

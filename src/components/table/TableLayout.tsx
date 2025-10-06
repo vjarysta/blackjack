@@ -244,7 +244,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
         removeTimerRef.current = window.setTimeout(() => {
           setBannerState(null);
         }, 320);
-      }, 1200);
+      }, 3000);
     },
     [clearBannerTimers]
   );
