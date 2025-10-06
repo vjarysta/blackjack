@@ -10,7 +10,32 @@ import { RoundActionBar } from "../hud/RoundActionBar";
 
 const BASE_W = 1280;
 const BASE_H = 720;
-const HUD_HEIGHT = 120;
+const HUD_HEIGHT = 150;
+const STAGE_PADDING = 24;
+
+const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+
+const useStageScale = (containerRef: React.RefObject<HTMLDivElement>): number => {
+  const [scale, setScale] = React.useState(1);
+
+  React.useLayoutEffect(() => {
+    const element = containerRef.current;
+    if (!element || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect;
+      const nextScale = Math.min(width / BASE_W, (height - HUD_HEIGHT) / BASE_H);
+      setScale(clamp(Number.isFinite(nextScale) ? nextScale : 1, 0.5, 2));
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [containerRef]);
+
+  return scale;
+};
 
 interface TableLayoutProps {
   game: GameState;
@@ -18,72 +43,21 @@ interface TableLayoutProps {
   onSelectChip: (value: ChipDenomination) => void;
   onSit: (seatIndex: number) => void;
   onLeave: (seatIndex: number) => void;
-  onAddChip: (seatIndex: number, value: number) => void;
-  onRemoveChipValue: (seatIndex: number, value: number) => void;
+  onAddChip: (seatIndex: number, denom: number) => void;
+  onRemoveChipValue: (seatIndex: number, denom: number) => void;
   onRemoveTopChip: (seatIndex: number) => void;
   onInsurance: (seatIndex: number, handId: string, amount: number) => void;
   onDeclineInsurance: (seatIndex: number, handId: string) => void;
-  onDeal: () => void;
-  onFinishInsurance: () => void;
-  onPlayDealer: () => void;
-  onNextRound: () => void;
   onHit: () => void;
   onStand: () => void;
   onDouble: () => void;
   onSplit: () => void;
   onSurrender: () => void;
+  onDeal: () => void;
+  onFinishInsurance: () => void;
+  onPlayDealer: () => void;
+  onNextRound: () => void;
 }
-
-type StageScaleState = {
-  scale: number;
-  stageWidth: number;
-  stageHeight: number;
-};
-
-const clampScale = (value: number): number => Math.max(0.5, Math.min(value, 2));
-
-const useStageScale = (containerRef: React.RefObject<HTMLDivElement>): StageScaleState => {
-  const [state, setState] = React.useState<StageScaleState>({
-    scale: 1,
-    stageWidth: BASE_W,
-    stageHeight: BASE_H
-  });
-
-  React.useLayoutEffect(() => {
-    const element = containerRef.current;
-    if (!element) {
-      return;
-    }
-
-    const updateScale = (width: number, height: number) => {
-      const rawScale = Math.min(width / BASE_W, (height - HUD_HEIGHT) / BASE_H);
-      const scale = clampScale(Number.isFinite(rawScale) ? rawScale : 1);
-      setState({
-        scale,
-        stageWidth: BASE_W * scale,
-        stageHeight: BASE_H * scale
-      });
-    };
-
-    updateScale(element.clientWidth, element.clientHeight);
-
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver(([entry]) => {
-      if (!entry) {
-        return;
-      }
-      const { width, height } = entry.contentRect;
-      updateScale(width, height);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [containerRef]);
-
-  return state;
-};
 
 export const TableLayout: React.FC<TableLayoutProps> = ({
   game,
@@ -96,19 +70,20 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   onRemoveTopChip,
   onInsurance,
   onDeclineInsurance,
-  onDeal,
-  onFinishInsurance,
-  onPlayDealer,
-  onNextRound,
   onHit,
   onStand,
   onDouble,
   onSplit,
-  onSurrender
+  onSurrender,
+  onDeal,
+  onFinishInsurance,
+  onPlayDealer,
+  onNextRound
 }) => {
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
-  const { scale, stageWidth, stageHeight } = useStageScale(containerRef);
-  const stageDimensions = React.useMemo(() => ({ width: BASE_W, height: BASE_H }), []);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const scale = useStageScale(containerRef);
+  const scaledWidth = BASE_W * scale;
+  const scaledHeight = BASE_H * scale;
 
   const seatStates = React.useMemo<SeatVisualState[]>(
     () =>
@@ -123,15 +98,15 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="relative flex w-full flex-1 flex-col items-center gap-6"
-      style={{ minHeight: 0 }}
-    >
-      <div className="relative flex w-full flex-1 items-start justify-center overflow-hidden px-4 pt-6">
-        <div className="relative" style={{ width: stageWidth, height: stageHeight }}>
+    <div ref={containerRef} className="relative flex h-full w-full flex-col items-center overflow-hidden">
+      <div
+        className="relative flex w-full flex-1 justify-center"
+        style={{ paddingTop: STAGE_PADDING, paddingBottom: STAGE_PADDING }}
+      >
+        <div className="relative" style={{ width: scaledWidth, height: scaledHeight }}>
           <div
-            className="relative mx-auto h-full w-full rounded-[48px] border border-[#c8a24a]/40 bg-[#08261d] shadow-[0_25px_80px_rgba(0,0,0,0.55)]"
+            data-testid="table-stage"
+            className="relative mx-auto"
             style={{
               width: BASE_W,
               height: BASE_H,
@@ -139,45 +114,44 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               transformOrigin: "top center"
             }}
           >
-            <div className="pointer-events-none absolute inset-0 z-10">
+            <div className="absolute inset-0 z-10">
               <TableSurfaceSVG seats={seatStates} className="h-full w-full" />
             </div>
-            <div className="absolute inset-0 z-20">
-              <BetSpotOverlay
-                game={game}
-                dimensions={stageDimensions}
-                activeChip={activeChip}
-                onSit={onSit}
-                onLeave={onLeave}
-                onAddChip={onAddChip}
-                onRemoveChipValue={onRemoveChipValue}
-                onRemoveTopChip={onRemoveTopChip}
-                onInsurance={onInsurance}
-                onDeclineInsurance={onDeclineInsurance}
-              />
-            </div>
-            <div className="absolute inset-0 z-30">
-              <CardLayer
-                game={game}
-                dimensions={stageDimensions}
-                onHit={onHit}
-                onStand={onStand}
-                onDouble={onDouble}
-                onSplit={onSplit}
-                onSurrender={onSurrender}
-              />
-            </div>
+            <BetSpotOverlay
+              game={game}
+              dimensions={{ width: BASE_W, height: BASE_H }}
+              activeChip={activeChip}
+              onSit={onSit}
+              onLeave={onLeave}
+              onAddChip={onAddChip}
+              onRemoveChipValue={onRemoveChipValue}
+              onRemoveTopChip={onRemoveTopChip}
+              onInsurance={onInsurance}
+              onDeclineInsurance={onDeclineInsurance}
+            />
+            <CardLayer
+              game={game}
+              dimensions={{ width: BASE_W, height: BASE_H }}
+              onHit={onHit}
+              onStand={onStand}
+              onDouble={onDouble}
+              onSplit={onSplit}
+              onSurrender={onSurrender}
+            />
           </div>
         </div>
       </div>
 
-      <div className="pointer-events-none sticky bottom-0 z-50 w-full px-4 pb-4">
+      <div className="sticky bottom-0 z-50 flex w-full justify-center pb-2">
         <div
-          className="pointer-events-auto mx-auto flex w-full flex-col gap-4 rounded-3xl border border-[#c8a24a]/40 bg-[#0b2d22]/85 px-6 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur"
-          style={{ width: stageWidth, maxWidth: "100%" }}
+          data-testid="table-hud"
+          className="flex w-full max-w-full flex-col gap-3 md:flex-row md:items-center md:justify-between"
+          style={{ width: scaledWidth }}
         >
-          <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 justify-start md:max-w-[50%]">
             <ChipTray activeChip={activeChip} onSelect={onSelectChip} disabled={game.phase !== "betting"} />
+          </div>
+          <div className="flex flex-1 justify-end">
             <RoundActionBar
               game={game}
               onDeal={onDeal}

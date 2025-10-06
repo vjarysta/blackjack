@@ -1,7 +1,7 @@
 import React from "react";
-import { ChipSVG } from "../table/ChipSVG";
 import type { ChipDenomination } from "../../theme/palette";
 import { palette } from "../../theme/palette";
+import { ChipSVG } from "../table/ChipSVG";
 
 const CHIP_VALUES: ChipDenomination[] = [1, 5, 25, 100, 500];
 
@@ -13,13 +13,11 @@ interface ChipTrayProps {
 
 export const ChipTray: React.FC<ChipTrayProps> = ({ activeChip, onSelect, disabled = false }) => {
   return (
-    <div className="flex flex-wrap items-center gap-4">
-      <span
-        className="text-xs font-semibold uppercase tracking-[0.35em]"
-        style={{ color: palette.subtleText }}
-      >
-        Chip Tray
-      </span>
+    <div
+      data-testid="chip-tray"
+      className="flex items-center gap-4 rounded-2xl border border-[#c8a24a]/40 bg-[#0e2f25]/90 px-4 py-3 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur"
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.5em] text-emerald-200">Chips</span>
       <div className="flex items-center gap-3">
         {CHIP_VALUES.map((value) => {
           const isActive = activeChip === value;
@@ -27,19 +25,17 @@ export const ChipTray: React.FC<ChipTrayProps> = ({ activeChip, onSelect, disabl
             <button
               key={value}
               type="button"
-              className={[
-                "relative flex flex-col items-center transition-transform",
-                disabled ? "cursor-not-allowed opacity-60" : "hover:-translate-y-1"
-              ].join(" ")}
-              onClick={() => onSelect(value)}
-              aria-pressed={isActive}
-              aria-label={`Select ${value} chip`}
+              data-testid={`chip-${value}`}
+              className="relative rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8a24a]"
               disabled={disabled}
+              aria-pressed={isActive}
+              aria-label={`${value} chip`}
+              onClick={() => onSelect(value)}
             >
-              <ChipSVG value={value} shadow={isActive} size={isActive ? 60 : 54} />
+              <ChipSVG value={value} size={isActive ? 56 : 52} shadow={isActive} />
               {isActive && (
                 <span
-                  className="mt-1 text-[10px] font-semibold uppercase tracking-[0.35em]"
+                  className="absolute inset-x-0 -bottom-4 text-center text-[9px] font-semibold uppercase tracking-[0.4em]"
                   style={{ color: palette.gold }}
                 >
                   Active

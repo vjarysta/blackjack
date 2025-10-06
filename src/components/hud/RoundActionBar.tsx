@@ -23,18 +23,20 @@ const hasReadySeat = (game: GameState): boolean => {
     return false;
   }
   const total = readySeats.reduce((sum, seat) => sum + seat.baseBet, 0);
-  return total <= game.bankroll;
+  return total <= game.bankroll && total > 0;
 };
 
-const getActiveHand = (game: GameState): Hand | null => {
-  if (game.phase !== "playerActions") {
+const findActiveHand = (game: GameState): Hand | null => {
+  if (!game.activeHandId) {
     return null;
   }
-  if (game.activeSeatIndex === null || game.activeHandId === null) {
-    return null;
+  for (const seat of game.seats) {
+    const hand = seat.hands.find((candidate) => candidate.id === game.activeHandId);
+    if (hand) {
+      return hand;
+    }
   }
-  const seat = game.seats[game.activeSeatIndex];
-  return seat.hands.find((hand) => hand.id === game.activeHandId) ?? null;
+  return null;
 };
 
 export const RoundActionBar: React.FC<RoundActionBarProps> = ({
@@ -49,62 +51,64 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
   onSplit,
   onSurrender
 }) => {
-  const activeHand = getActiveHand(game);
+  const activeHand = findActiveHand(game);
+  const parentSeat = activeHand ? game.seats[activeHand.parentSeatIndex] : null;
 
-  const legalActions = React.useMemo(() => {
-    if (!activeHand) {
+  const legal = React.useMemo(() => {
+    if (!activeHand || !parentSeat || game.phase !== "playerActions") {
       return null;
     }
     return {
       hit: canHit(activeHand),
       stand: !activeHand.isResolved,
       double: canDouble(activeHand, game.rules) && game.bankroll >= activeHand.bet,
-      split: canSplit(activeHand, game.seats[activeHand.parentSeatIndex], game.rules) &&
-        game.bankroll >= activeHand.bet,
+      split: canSplit(activeHand, parentSeat, game.rules) && game.bankroll >= activeHand.bet,
       surrender: canSurrender(activeHand, game.rules)
     };
-  }, [activeHand, game]);
+  }, [activeHand, game.bankroll, game.phase, game.rules, parentSeat]);
 
   return (
-    <div className="flex w-full flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={onDeal} disabled={game.phase !== "betting" || !hasReadySeat(game)}>
-            Deal
+    <div
+      data-testid="round-action-bar"
+      className="flex w-full items-center gap-3 overflow-x-auto rounded-2xl border border-[#c8a24a]/40 bg-[#0d2c22]/90 px-4 py-3 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur"
+    >
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={onDeal} disabled={game.phase !== "betting" || !hasReadySeat(game)}>
+          Deal
+        </Button>
+        <Button size="sm" variant="outline" onClick={onFinishInsurance} disabled={game.phase !== "insurance"}>
+          Finish Insurance
+        </Button>
+        <Button size="sm" variant="outline" onClick={onPlayDealer} disabled={game.phase !== "dealerPlay"}>
+          Play Dealer
+        </Button>
+        <Button size="sm" variant="outline" onClick={onNextRound} disabled={game.phase !== "settlement"}>
+          Next Round
+        </Button>
+      </div>
+
+      {legal && (
+        <div className="ml-auto flex items-center gap-2">
+          <span className="hidden text-[10px] uppercase tracking-[0.4em] text-emerald-200 md:inline">
+            Active Bet {formatCurrency(activeHand.bet)}
+          </span>
+          <Button size="sm" onClick={onHit} disabled={!legal.hit}>
+            Hit
           </Button>
-          <Button variant="outline" onClick={onFinishInsurance} disabled={game.phase !== "insurance"}>
-            Finish Insurance
+          <Button size="sm" variant="outline" onClick={onStand} disabled={!legal.stand}>
+            Stand
           </Button>
-          <Button variant="outline" onClick={onPlayDealer} disabled={game.phase !== "dealerPlay"}>
-            Play Dealer
+          <Button size="sm" variant="outline" onClick={onDouble} disabled={!legal.double}>
+            Double
           </Button>
-          <Button variant="outline" onClick={onNextRound} disabled={game.phase !== "settlement"}>
-            Next Round
+          <Button size="sm" variant="outline" onClick={onSplit} disabled={!legal.split}>
+            Split
+          </Button>
+          <Button size="sm" variant="outline" onClick={onSurrender} disabled={!legal.surrender}>
+            Surrender
           </Button>
         </div>
-        {activeHand && legalActions && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" onClick={onHit} disabled={!legalActions.hit}>
-              Hit
-            </Button>
-            <Button size="sm" variant="outline" onClick={onStand} disabled={!legalActions.stand}>
-              Stand
-            </Button>
-            <Button size="sm" variant="outline" onClick={onDouble} disabled={!legalActions.double}>
-              Double
-            </Button>
-            <Button size="sm" variant="outline" onClick={onSplit} disabled={!legalActions.split}>
-              Split
-            </Button>
-            <Button size="sm" variant="outline" onClick={onSurrender} disabled={!legalActions.surrender}>
-              Surrender
-            </Button>
-          </div>
-        )}
-      </div>
-      <p className="text-xs uppercase tracking-[0.25em] text-emerald-200/80">
-        Minimum bet {formatCurrency(game.rules.minBet)} · Maximum bet {formatCurrency(game.rules.maxBet)}
-      </p>
+      )}
     </div>
   );
 };

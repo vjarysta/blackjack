@@ -10,7 +10,6 @@ export const App: React.FC = () => {
     clearError,
     sit,
     leave,
-    setBet,
     addChip,
     removeChipValue,
     removeTopChip,
@@ -29,7 +28,7 @@ export const App: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-950 p-6 text-emerald-50">
-      <div className="mx-auto max-w-6xl space-y-4">
+      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl flex-col gap-4">
         {error && (
           <div className="flex items-center justify-between rounded-md border border-rose-600 bg-rose-900/60 px-4 py-2 text-sm">
             <span>{error}</span>
@@ -39,11 +38,10 @@ export const App: React.FC = () => {
           </div>
         )}
         <Table
-          game={game}
+            game={game}
           actions={{
             sit,
             leave,
-            setBet,
             addChip,
             removeChipValue,
             removeTopChip,

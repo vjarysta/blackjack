@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "lint": "eslint . --ext .ts,.tsx"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^8.55.0",
+    "@playwright/test": "^1.55.1",
     "@testing-library/react": "^14.0.0",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.45",
@@ -37,6 +39,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "globals": "^13.23.0",
+    "jsdom": "^27.0.0",
     "postcss": "^8.4.31",
     "prettier": "^3.1.0",
     "tailwindcss": "^3.3.5",

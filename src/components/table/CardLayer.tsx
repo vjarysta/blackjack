@@ -4,6 +4,7 @@ import { palette } from "../../theme/palette";
 import { toPixels, defaultTableAnchors } from "./coords";
 import type { GameState, Hand, Seat } from "../../engine/types";
 import { getHandTotals, isBust } from "../../engine/totals";
+import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { formatCurrency } from "../../utils/currency";
 
 interface CardLayerProps {
@@ -112,7 +113,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   const dealerTotals = getHandTotals(game.dealer.hand);
 
   return (
-    <div className="pointer-events-none absolute inset-0 text-sm" style={{ color: palette.text }}>
+    <div className="pointer-events-none absolute inset-0 z-30 text-sm" style={{ color: palette.text }}>
       <div
         className="flex flex-col items-center gap-3"
         style={{
