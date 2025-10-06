@@ -1,0 +1,92 @@
+:root[data-theme="solo"] {
+  --bg: #0c1f18;
+  --bg-elev: #0f261e;
+  --line: #b8952a;
+  --text-hi: #f3efe3;
+  --text-lo: #a8b3a7;
+  --accent: #d8b64c;
+  --chip-green: #1e3a2f;
+  --danger: #d75a5a;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --shadow-1: 0 6px 24px rgba(0, 0, 0, 0.35);
+  --glow: 0 0 0 1px rgba(184, 149, 42, 0.35), 0 0 18px rgba(184, 149, 42, 0.25);
+  --gap: 12px;
+  --gap-lg: 20px;
+  --btn-h: 48px;
+  --chip-size: 48px;
+  --font-ui: ui-sans-serif, system-ui, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  --caps-track: 0.08em;
+}
+
+[data-theme="solo"] body {
+  font-family: var(--font-ui);
+}
+
+.solo-layer {
+  background: radial-gradient(circle at 50% 0%, rgba(29, 55, 44, 0.75), transparent 60%),
+    radial-gradient(circle at 50% 120%, rgba(29, 55, 44, 0.85), transparent 60%),
+    linear-gradient(180deg, #07120d 0%, #0b1912 35%, #0d2118 100%);
+  color: var(--text-hi);
+  min-height: 100%;
+}
+
+.solo-hud {
+  background: linear-gradient(90deg, rgba(19, 44, 34, 0.85), rgba(14, 33, 25, 0.85));
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(216, 182, 76, 0.2);
+  box-shadow: var(--shadow-1);
+}
+
+.solo-chip {
+  background: radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.15), transparent 65%), var(--chip-green);
+  border: 1px solid rgba(216, 182, 76, 0.35);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+}
+
+.solo-chip[data-active="true"] {
+  box-shadow: 0 0 0 2px rgba(216, 182, 76, 0.5), 0 18px 28px rgba(0, 0, 0, 0.45);
+  transform: translateY(-2px);
+}
+
+.solo-action-primary {
+  background: linear-gradient(135deg, var(--accent), #f3d77a);
+  color: #0b140f;
+  box-shadow: 0 12px 22px rgba(216, 182, 76, 0.4);
+}
+
+.solo-action-primary:disabled {
+  background: linear-gradient(135deg, rgba(216, 182, 76, 0.45), rgba(216, 182, 76, 0.55));
+  color: rgba(11, 20, 15, 0.4);
+  box-shadow: none;
+}
+
+.solo-toast-enter {
+  animation: solo-toast-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.solo-toast-leave {
+  animation: solo-toast-out 180ms cubic-bezier(0.4, 0, 1, 1);
+}
+
+@keyframes solo-toast-in {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes solo-toast-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+}

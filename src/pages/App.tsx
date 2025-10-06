@@ -10,6 +10,7 @@ export const App: React.FC = () => {
     clearError,
     sit,
     leave,
+    setBet,
     addChip,
     removeChipValue,
     removeTopChip,
@@ -42,6 +43,7 @@ export const App: React.FC = () => {
           actions={{
             sit,
             leave,
+            setBet,
             addChip,
             removeChipValue,
             removeTopChip,
