@@ -1,5 +1,5 @@
 import React from "react";
-import type { GameState } from "../../engine/types";
+import type { GameState, Seat } from "../../engine/types";
 import { TableSurfaceSVG, type SeatVisualState } from "./TableSurfaceSVG";
 import { mapSeatAnchors } from "./coords";
 import { BetSpotOverlay } from "./BetSpotOverlay";
@@ -8,11 +8,78 @@ import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar } from "../hud/RoundActionBar";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
+import { ResultBanner, type ResultKind } from "./ResultBanner";
 
 const BASE_W = 1850;
 const BASE_H = 780;
 const HUD_HEIGHT = 120;
 const STAGE_PADDING = 16;
+
+const EPSILON = 0.009;
+
+const roundToCents = (value: number): number => Math.round(value * 100) / 100;
+
+const isPositive = (value: number): boolean => value > EPSILON;
+
+const isNegative = (value: number): boolean => value < -EPSILON;
+
+const toDisplayAmount = (value: number): number | undefined => {
+  const rounded = roundToCents(value);
+  return Math.abs(rounded) > EPSILON ? rounded : undefined;
+};
+
+const hasActiveHands = (seats: Seat[]): boolean => seats.some((seat) => seat.hands && seat.hands.length > 0);
+
+const calculateInsuranceProfit = (game: GameState, seats: Seat[]): number => {
+  if (!game.dealer.hand.isBlackjack) {
+    return 0;
+  }
+  const total = seats.reduce((sum, seat) => {
+    const seatProfit = seat.hands.reduce((acc, hand) => acc + (hand.insuranceBet ?? 0) * 2, 0);
+    return sum + seatProfit;
+  }, 0);
+  return roundToCents(total);
+};
+
+const deriveBannerPayload = (game: GameState, seats: Seat[], baseline: number): { kind: ResultKind; amount?: number } | null => {
+  if (!hasActiveHands(seats)) {
+    return null;
+  }
+
+  const net = roundToCents(game.bankroll - baseline);
+  const insuranceProfit = calculateInsuranceProfit(game, seats);
+  const handProfit = roundToCents(net - insuranceProfit);
+  const blackjackWin = !game.dealer.hand.isBlackjack && seats.some((seat) =>
+    seat.hands.some((hand) => hand.isBlackjack)
+  );
+
+  let kind: ResultKind;
+
+  if (blackjackWin && isPositive(handProfit)) {
+    kind = "blackjack";
+  } else if (isPositive(handProfit)) {
+    kind = "win";
+  } else if (isNegative(net)) {
+    kind = "lose";
+  } else if (isPositive(insuranceProfit)) {
+    kind = "insurance";
+  } else {
+    kind = "push";
+  }
+
+  let amount: number | undefined;
+  if (kind === "insurance") {
+    amount = toDisplayAmount(insuranceProfit);
+  } else if (kind === "push") {
+    amount = undefined;
+  } else if (kind === "lose") {
+    amount = toDisplayAmount(Math.abs(net));
+  } else {
+    amount = toDisplayAmount(net);
+  }
+
+  return { kind, amount };
+};
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
 
@@ -94,6 +161,11 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   onNextRound
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const baselineRef = React.useRef(game.bankroll);
+  const prevPhaseRef = React.useRef(game.phase);
+  const exitTimeoutRef = React.useRef<number | null>(null);
+  const removeTimeoutRef = React.useRef<number | null>(null);
+  const [banner, setBanner] = React.useState<{ kind: ResultKind; amount?: number; exiting: boolean } | null>(null);
   const { scale, containerWidth } = useStageMetrics(containerRef);
   const scaledWidth = BASE_W * scale;
   const scaledHeight = BASE_H * scale;
@@ -117,6 +189,54 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
       })),
     [game.activeSeatIndex, seatsForMode]
   );
+
+  const scheduleBanner = React.useCallback((payload: { kind: ResultKind; amount?: number }) => {
+    setBanner({ ...payload, exiting: false });
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (exitTimeoutRef.current !== null) {
+      window.clearTimeout(exitTimeoutRef.current);
+    }
+    if (removeTimeoutRef.current !== null) {
+      window.clearTimeout(removeTimeoutRef.current);
+    }
+    exitTimeoutRef.current = window.setTimeout(() => {
+      setBanner((current) => (current ? { ...current, exiting: true } : current));
+    }, 1200);
+    removeTimeoutRef.current = window.setTimeout(() => {
+      setBanner(null);
+    }, 1600);
+  }, []);
+
+  React.useEffect(() => {
+    if (game.phase === "betting") {
+      baselineRef.current = game.bankroll;
+    }
+  }, [game.bankroll, game.phase]);
+
+  React.useEffect(() => {
+    const previousPhase = prevPhaseRef.current;
+    if (previousPhase !== "settlement" && game.phase === "settlement") {
+      const payload = deriveBannerPayload(game, seatsForMode, baselineRef.current);
+      if (payload) {
+        scheduleBanner(payload);
+      }
+    }
+    prevPhaseRef.current = game.phase;
+  }, [game, scheduleBanner, seatsForMode]);
+
+  React.useEffect(() => () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (exitTimeoutRef.current !== null) {
+      window.clearTimeout(exitTimeoutRef.current);
+    }
+    if (removeTimeoutRef.current !== null) {
+      window.clearTimeout(removeTimeoutRef.current);
+    }
+  }, []);
 
   return (
     <div
@@ -159,6 +279,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               onInsurance={onInsurance}
               onDeclineInsurance={onDeclineInsurance}
             />
+            {banner ? <ResultBanner kind={banner.kind} amount={banner.amount} exiting={banner.exiting} /> : null}
           </div>
         </div>
       </div>

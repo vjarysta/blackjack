@@ -17,12 +17,22 @@ export const palette = {
   subtleText: "#c7d1c9"
 } as const;
 
-export const chipPalette: Record<number, { base: string; accent: string; text: string }> = {
-  1: { base: "#f5f5f2", accent: "#dad9d4", text: "#2f2f2f" },
-  5: { base: "#d54848", accent: "#b63d3d", text: "#f9f4f4" },
-  25: { base: "#2d6a4f", accent: "#24533d", text: "#f1f9f5" },
-  100: { base: "#1d1d1d", accent: "#3a3a3a", text: "#f0f0f0" },
-  500: { base: "#6a3ea1", accent: "#553281", text: "#f4eef9" }
+export type ChipColor = {
+  base: string;
+  ring: string;
+  core: string;
+  notch: string;
 };
+
+export const chipPalette: Record<number, ChipColor> = {
+  1: { base: "#f2f2ee", ring: "#e8e6db", core: "#fffdf6", notch: "#d2cfbf" },
+  5: { base: "#d9534f", ring: "#c44b47", core: "#e76662", notch: "#b74440" },
+  25: { base: "#2d6a4f", ring: "#265a43", core: "#338f68", notch: "#244f3c" },
+  100: { base: "#303338", ring: "#282b2f", core: "#404349", notch: "#1f2125" },
+  500: { base: "#5b3ea8", ring: "#4e3593", core: "#6b50ba", notch: "#462f87" }
+};
+
+export const getChipColor = (value: number): ChipColor =>
+  chipPalette[value] ?? { base: "#3a6b57", ring: "#325c4b", core: "#427c64", notch: "#2c5143" };
 
 export type ChipDenomination = keyof typeof chipPalette;

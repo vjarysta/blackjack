@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Button } from "../ui/button";
-import { ChipSVG } from "./ChipSVG";
+import { ChipGraphic } from "./Chip";
 import type { ChipDenomination } from "../../theme/palette";
 import { palette } from "../../theme/palette";
 import { defaultTableAnchors, toPixels } from "./coords";
@@ -167,7 +167,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                           }
                         }}
                       >
-                        <ChipSVG value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
+                        <ChipGraphic value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
                       </button>
                     </AnimatedChip>
                   );
