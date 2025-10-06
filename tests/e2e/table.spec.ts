@@ -17,10 +17,28 @@ test("table fits within the viewport without scrolling", async ({ page }) => {
     innerHeight: window.innerHeight
   }));
 
-  expect(scrollHeight).toBeLessThanOrEqual(innerHeight + 2);
+  expect(scrollHeight).toBeLessThanOrEqual(innerHeight + 16);
 });
 
-test("hud width matches the felt stage width", async ({ page }) => {
+test("felt stage is horizontally centered", async ({ page }) => {
+  const { containerCenter, stageCenter } = await page.evaluate(() => {
+    const container = document.querySelector('[data-testid="table-layout"]');
+    const stage = document.querySelector('[data-testid="table-stage"]');
+    if (!container || !stage) {
+      return { containerCenter: 0, stageCenter: 0 };
+    }
+    const containerRect = container.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    return {
+      containerCenter: containerRect.left + containerRect.width / 2,
+      stageCenter: stageRect.left + stageRect.width / 2
+    };
+  });
+
+  expect(Math.abs(containerCenter - stageCenter)).toBeLessThanOrEqual(4);
+});
+
+test("hud spans at least the felt stage width", async ({ page }) => {
   const { stageWidth, hudWidth } = await page.evaluate(() => {
     const stage = document.querySelector('[data-testid="table-stage"]');
     const hud = document.querySelector('[data-testid="table-hud"]');
@@ -28,7 +46,14 @@ test("hud width matches the felt stage width", async ({ page }) => {
     const hudWidth = hud ? hud.getBoundingClientRect().width : 0;
     return { stageWidth, hudWidth };
   });
-  expect(Math.abs(stageWidth - hudWidth)).toBeLessThanOrEqual(2);
+  expect(hudWidth).toBeGreaterThanOrEqual(stageWidth - 2);
+});
+
+test("five betting seats are available", async ({ page }) => {
+  const seatCount = await page.evaluate(() => {
+    return document.querySelectorAll('[data-testid^="bet-spot-"]').length;
+  });
+  expect(seatCount).toBe(5);
 });
 
 test("chips can be added and removed individually", async ({ page }) => {

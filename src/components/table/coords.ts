@@ -38,18 +38,19 @@ export interface TableAnchors {
 const VIEWBOX_WIDTH = 1200;
 const VIEWBOX_HEIGHT = 800;
 
-const SEAT_COUNT = 7;
-const START_DEG = -60;
-const END_DEG = 240;
+const SEAT_COUNT = 5;
+const START_DEG = -72;
+const END_DEG = 252;
 
 const computeSeatAnchors = (
   cx: number,
   cy: number,
   rx: number,
-  ry: number
+  ry: number,
+  seatCount: number
 ): SeatAnchor[] => {
-  const step = (END_DEG - START_DEG) / (SEAT_COUNT - 1);
-  return Array.from({ length: SEAT_COUNT }, (_, index) => {
+  const step = (END_DEG - START_DEG) / (seatCount - 1);
+  return Array.from({ length: seatCount }, (_, index) => {
     const theta = ((START_DEG + index * step) * Math.PI) / 180;
     const x = cx + rx * Math.cos(theta);
     const y = cy + ry * Math.sin(theta);
@@ -75,33 +76,37 @@ export const defaultTableAnchors: TableAnchors = {
     width: VIEWBOX_WIDTH,
     height: VIEWBOX_HEIGHT
   },
-  seatRadius: 60,
-  seatLabelOffset: 90,
+  seatRadius: 56,
+  seatLabelOffset: 96,
   seatArc: {
     cx: VIEWBOX_WIDTH / 2,
-    cy: 540,
-    rx: 420,
-    ry: 250,
+    cy: 492,
+    rx: 400,
+    ry: 220,
     startDeg: START_DEG,
     endDeg: END_DEG
   },
-  seats: computeSeatAnchors(VIEWBOX_WIDTH / 2, 540, 420, 250),
+  seats: computeSeatAnchors(VIEWBOX_WIDTH / 2, 492, 400, 220, SEAT_COUNT).map((anchor, index) => ({
+    ...anchor,
+    index,
+    label: `Seat ${index + 1}`
+  })),
   dealerArea: {
     x: 470,
-    y: 130,
+    y: 138,
     width: 260,
     height: 130
   },
   shoeAnchor: {
-    x: 940,
-    y: 190
+    x: 930,
+    y: 200
   },
   discardAnchor: {
-    x: 260,
-    y: 190
+    x: 270,
+    y: 200
   },
-  outerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 210, 360, 180),
-  innerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 290, 300, 150)
+  outerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 210, 350, 180),
+  innerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 288, 288, 150)
 };
 
 export const mapSeatAnchors = <T>(seats: Seat[], mapper: (seat: Seat, anchor: SeatAnchor) => T): T[] =>

@@ -35,7 +35,7 @@ const cloneRules = (overrides?: Partial<RuleConfig>): RuleConfig => ({
 });
 
 const createEmptySeats = (): GameState["seats"] =>
-  Array.from({ length: 7 }, (_, index) => ({ index, occupied: false, hands: [], baseBet: 0, chips: [] }));
+  Array.from({ length: 5 }, (_, index) => ({ index, occupied: false, hands: [], baseBet: 0, chips: [] }));
 
 const initialDealerHand = (): Hand => ({
   id: "dealer",

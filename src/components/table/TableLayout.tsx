@@ -8,15 +8,23 @@ import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar } from "../hud/RoundActionBar";
 
-const BASE_W = 1280;
-const BASE_H = 720;
-const HUD_HEIGHT = 150;
-const STAGE_PADDING = 24;
+const BASE_W = 1320;
+const BASE_H = 760;
+const HUD_HEIGHT = 120;
+const STAGE_PADDING = 16;
 
 const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
 
-const useStageScale = (containerRef: React.RefObject<HTMLDivElement>): number => {
-  const [scale, setScale] = React.useState(1);
+interface StageMetrics {
+  scale: number;
+  containerWidth: number;
+}
+
+const useStageMetrics = (containerRef: React.RefObject<HTMLDivElement>): StageMetrics => {
+  const [metrics, setMetrics] = React.useState<StageMetrics>({
+    scale: 1,
+    containerWidth: BASE_W
+  });
 
   React.useLayoutEffect(() => {
     const element = containerRef.current;
@@ -26,15 +34,19 @@ const useStageScale = (containerRef: React.RefObject<HTMLDivElement>): number =>
 
     const observer = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
-      const nextScale = Math.min(width / BASE_W, (height - HUD_HEIGHT) / BASE_H);
-      setScale(clamp(Number.isFinite(nextScale) ? nextScale : 1, 0.5, 2));
+      const availableHeight = height - HUD_HEIGHT;
+      const nextScale = Math.min(width / BASE_W, availableHeight / BASE_H);
+      setMetrics({
+        scale: clamp(Number.isFinite(nextScale) ? nextScale : 1, 0.55, 2),
+        containerWidth: width
+      });
     });
 
     observer.observe(element);
     return () => observer.disconnect();
   }, [containerRef]);
 
-  return scale;
+  return metrics;
 };
 
 interface TableLayoutProps {
@@ -81,9 +93,10 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   onNextRound
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const scale = useStageScale(containerRef);
+  const { scale, containerWidth } = useStageMetrics(containerRef);
   const scaledWidth = BASE_W * scale;
   const scaledHeight = BASE_H * scale;
+  const hudWidth = Math.max(scaledWidth, containerWidth - STAGE_PADDING * 2);
 
   const seatStates = React.useMemo<SeatVisualState[]>(
     () =>
@@ -98,19 +111,24 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   );
 
   return (
-    <div ref={containerRef} className="relative flex h-full w-full flex-col items-center overflow-hidden">
+    <div
+      ref={containerRef}
+      data-testid="table-layout"
+      className="relative flex h-full w-full flex-col items-center overflow-hidden px-2 sm:px-6"
+    >
       <div
-        className="relative flex w-full flex-1 justify-center"
+        className="relative flex w-full flex-1 items-center justify-center"
         style={{ paddingTop: STAGE_PADDING, paddingBottom: STAGE_PADDING }}
       >
         <div className="relative" style={{ width: scaledWidth, height: scaledHeight }}>
           <div
             data-testid="table-stage"
-            className="relative mx-auto"
+            className="relative"
             style={{
               width: BASE_W,
               height: BASE_H,
-              transform: `scale(${scale})`,
+              left: "50%",
+              transform: `translateX(-50%) scale(${scale})`,
               transformOrigin: "top center"
             }}
           >
@@ -146,7 +164,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
         <div
           data-testid="table-hud"
           className="flex w-full max-w-full flex-col gap-3 md:flex-row md:items-center md:justify-between"
-          style={{ width: scaledWidth }}
+          style={{ width: hudWidth }}
         >
           <div className="flex flex-1 justify-start md:max-w-[50%]">
             <ChipTray activeChip={activeChip} onSelect={onSelectChip} disabled={game.phase !== "betting"} />

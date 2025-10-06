@@ -1,11 +1,11 @@
 import React from "react";
-import { Icon } from "@iconify/react";
 import { palette } from "../../theme/palette";
 import { toPixels, defaultTableAnchors } from "./coords";
 import type { GameState, Hand, Seat } from "../../engine/types";
 import { getHandTotals, isBust } from "../../engine/totals";
 import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { formatCurrency } from "../../utils/currency";
+import { PlayingCard } from "./PlayingCard";
 
 interface CardLayerProps {
   game: GameState;
@@ -17,27 +17,11 @@ interface CardLayerProps {
   onSurrender: () => void;
 }
 
-const cardStyle = {
-  backgroundColor: "rgba(20, 64, 48, 0.85)",
-  border: `1.5px solid ${palette.line}`,
-  color: palette.text
-};
-
-const cardBackStyle = {
-  backgroundColor: palette.cardBack,
-  border: `1.5px solid ${palette.cardBackBorder}`,
-  color: palette.gold
-};
-
-const renderCard = (content: React.ReactNode, key: string, faceDown = false): React.ReactNode => (
-  <div
-    key={key}
-    className="flex h-[108px] w-[78px] items-center justify-center rounded-xl text-lg font-semibold"
-    style={faceDown ? cardBackStyle : cardStyle}
-  >
-    {content}
-  </div>
-);
+const renderCard = (
+  card: { rank: string; suit: string },
+  key: string,
+  faceDown = false
+): React.ReactNode => <PlayingCard key={key} rank={card.rank} suit={card.suit} faceDown={faceDown} />;
 
 const renderHandBadges = (hand: Hand): React.ReactNode => {
   const badges: string[] = [];
@@ -51,9 +35,9 @@ const renderHandBadges = (hand: Hand): React.ReactNode => {
     return null;
   }
   return (
-    <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.25em]" style={{ color: palette.subtleText }}>
+    <div className="flex flex-wrap gap-2 text-[12px] uppercase tracking-[0.25em]" style={{ color: palette.subtleText }}>
       {badges.map((badge) => (
-        <span key={badge} className="rounded-full bg-[#123428]/70 px-2 py-1 font-semibold">
+        <span key={badge} className="rounded-full bg-[#123428]/75 px-2 py-1 font-semibold">
           {badge}
         </span>
       ))}
@@ -69,11 +53,11 @@ const SeatHandCluster = (
   isActive: boolean
 ): React.ReactNode => {
   const anchor = defaultTableAnchors.seats[seatIndex];
-  const { x, y } = toPixels(anchor.x, anchor.y - defaultTableAnchors.seatRadius - 70, dimensions);
+  const { x, y } = toPixels(anchor.x, anchor.y - defaultTableAnchors.seatRadius - 96, dimensions);
   return (
     <div
       key={`${seat.index}-cluster`}
-      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3"
+      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4"
       style={{
         left: x,
         top: y,
@@ -113,7 +97,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   const dealerTotals = getHandTotals(game.dealer.hand);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 text-sm" style={{ color: palette.text }}>
+    <div className="pointer-events-none absolute inset-0 z-30 text-[13px]" style={{ color: palette.text }}>
       <div
         className="flex flex-col items-center gap-3"
         style={{
@@ -124,12 +108,12 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           transform: "translate(-50%, -50%)"
         }}
       >
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           {dealerCards.map((card, index) => {
             if (index === 1 && !revealHole) {
-              return renderCard(<Icon icon="game-icons:card-random" width={28} height={28} />, `dealer-${index}`, true);
+              return renderCard(card, `dealer-${index}`, true);
             }
-            return renderCard(`${card.rank}${card.suit}`, `dealer-${index}`);
+            return renderCard(card, `dealer-${index}`);
           })}
         </div>
         <div className="rounded-full bg-[#0d3124]/80 px-4 py-1 text-xs uppercase tracking-[0.25em]">
@@ -153,7 +137,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           clusterChildren.push(
             <span
               key="pending"
-              className="rounded-full bg-[#0d3124]/75 px-4 py-1 text-xs uppercase tracking-[0.3em]"
+              className="rounded-full bg-[#0d3124]/75 px-4 py-1 text-sm uppercase tracking-[0.25em]"
             >
               Ready with {formatCurrency(seat.baseBet)}
             </span>
@@ -162,27 +146,27 @@ export const CardLayer: React.FC<CardLayerProps> = ({
 
         hands.forEach((hand, handIndex) => {
           const cards = hand.cards.map((card, index) => {
-            return renderCard(`${card.rank}${card.suit}`, `${hand.id}-${index}`);
+            return renderCard(card, `${hand.id}-${index}`);
           });
           const handTotals = getHandTotals(hand);
           clusterChildren.push(
             <div key={hand.id} className="flex flex-col items-center gap-2">
-              <div className="flex gap-3" style={{ transform: `translateX(${handIndex * 14}px)` }}>
+              <div className="flex gap-3" style={{ transform: `translateX(${handIndex * 18}px)` }}>
                 {cards}
               </div>
               <div
-                className="rounded-full bg-[#0c2e23]/85 px-3 py-1 text-[11px] uppercase tracking-[0.3em]"
+                className="rounded-full bg-[#0c2e23]/85 px-3 py-1 text-[13px] uppercase tracking-[0.25em]"
                 style={{ color: palette.text }}
               >
                 {handTotals.soft && handTotals.soft !== handTotals.hard
                   ? `Total ${handTotals.hard} / ${handTotals.soft}`
                   : `Total ${handTotals.hard}`}
               </div>
-              <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: palette.subtleText }}>
+              <div className="text-[13px] uppercase tracking-[0.25em]" style={{ color: palette.subtleText }}>
                 Bet {formatCurrency(hand.bet)}
               </div>
               {hand.insuranceBet !== undefined && (
-                <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: palette.subtleText }}>
+                <div className="text-[12px] uppercase tracking-[0.25em]" style={{ color: palette.subtleText }}>
                   {hand.insuranceBet > 0
                     ? `Insurance ${formatCurrency(hand.insuranceBet)}`
                     : "Insurance declined"}
