@@ -9,6 +9,7 @@ import type { GameState, Seat } from "../../engine/types";
 import { formatCurrency } from "../../utils/currency";
 import { AnimatedChip } from "../animation/AnimatedChip";
 import { ANIM, REDUCED } from "../../utils/animConstants";
+import { PRIMARY_SEAT_INDEX, isSingleSeatMode } from "../../ui/config";
 
 interface BetSpotOverlayProps {
   game: GameState;
@@ -34,15 +35,25 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
   onRemoveTopChip
 }) => {
   const isBettingPhase = game.phase === "betting";
-  const seats = game.seats;
-  const totalBets = seats.reduce((sum, seat) => sum + seat.baseBet, 0);
+  const seats = React.useMemo(() => {
+    if (!isSingleSeatMode) {
+      return game.seats;
+    }
+    const primarySeat = game.seats[PRIMARY_SEAT_INDEX];
+    return primarySeat ? [primarySeat] : [];
+  }, [game.seats]);
+  const totalBets = React.useMemo(
+    () => game.seats.reduce((sum, seat) => sum + seat.baseBet, 0),
+    [game.seats]
+  );
 
   const handleAddChip = (seat: Seat): void => {
     if (!isBettingPhase) {
       return;
     }
-    if (!seat.occupied) {
-      onSit(seat.index);
+    const targetSeatIndex = isSingleSeatMode ? PRIMARY_SEAT_INDEX : seat.index;
+    if (!seat.occupied && !isSingleSeatMode) {
+      onSit(targetSeatIndex);
     }
     const remainingBankroll = Math.max(0, Math.floor(game.bankroll - (totalBets - seat.baseBet)));
     const nextBet = seat.baseBet + activeChip;
@@ -51,7 +62,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
     }
     const denom = Math.min(activeChip, remainingBankroll);
     if (denom > 0) {
-      onAddChip(seat.index, denom);
+      onAddChip(targetSeatIndex, denom);
     }
   };
 
@@ -63,9 +74,11 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
     const target = event.target as HTMLElement;
     const value = Number(target.dataset.chipValue);
     if (!Number.isNaN(value)) {
-      onRemoveChipValue(seat.index, value);
+      const targetSeatIndex = isSingleSeatMode ? PRIMARY_SEAT_INDEX : seat.index;
+      onRemoveChipValue(targetSeatIndex, value);
     } else {
-      onRemoveTopChip(seat.index);
+      const targetSeatIndex = isSingleSeatMode ? PRIMARY_SEAT_INDEX : seat.index;
+      onRemoveTopChip(targetSeatIndex);
     }
   };
 
@@ -77,12 +90,13 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
         const scaleX = dimensions.width / defaultTableAnchors.viewBox.width;
         const circleSize = defaultTableAnchors.seatRadius * 2 * scaleX;
         const chipStack = Array.isArray(seat.chips) ? seat.chips : [];
-        const showSit = isBettingPhase && !seat.occupied;
-        const showLeave = seat.occupied && isBettingPhase;
+        const showSit = !isSingleSeatMode && isBettingPhase && !seat.occupied;
+        const showLeave = !isSingleSeatMode && seat.occupied && isBettingPhase;
         const visibleStart = Math.max(0, chipStack.length - MAX_VISIBLE_CHIPS);
         const visibleChips = chipStack.slice(visibleStart);
         const overflow = chipStack.length - visibleChips.length;
         const isActive = game.activeSeatIndex === seat.index;
+        const targetSeatIndex = isSingleSeatMode ? PRIMARY_SEAT_INDEX : seat.index;
 
         return (
           <div key={seat.index} className="absolute" style={{ left: x, top: y }} data-testid={`seat-${seat.index}`}>
@@ -95,7 +109,9 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                 onClick={() => handleAddChip(seat)}
                 onContextMenu={(event) => handleContextMenu(event, seat)}
                 disabled={!isBettingPhase}
-                aria-label={`Bet spot for seat ${seat.index + 1}`}
+                aria-label={
+                  isSingleSeatMode ? "Bet spot for your hand" : `Bet spot for seat ${seat.index + 1}`
+                }
               />
               <motion.div
                 aria-hidden
@@ -121,7 +137,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                   <Button
                     size="sm"
                     className="pointer-events-auto h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
-                    onClick={() => onSit(seat.index)}
+                    onClick={() => onSit(targetSeatIndex)}
                   >
                     Sit
                   </Button>
@@ -133,7 +149,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                     size="sm"
                     variant="ghost"
                     className="pointer-events-auto h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
-                    onClick={() => onLeave(seat.index)}
+                    onClick={() => onLeave(targetSeatIndex)}
                   >
                     Leave
                   </Button>
@@ -155,17 +171,17 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                         transform: "translate(-50%, -50%)"
                       }}
                     >
-                      <button
-                        type="button"
-                        data-chip-value={chip}
-                        className="pointer-events-auto"
-                        onContextMenu={(event) => {
-                          event.preventDefault();
-                          if (isBettingPhase) {
-                            onRemoveChipValue(seat.index, chip);
-                          }
-                        }}
-                      >
+                  <button
+                    type="button"
+                    data-chip-value={chip}
+                    className="pointer-events-auto"
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      if (isBettingPhase) {
+                        onRemoveChipValue(targetSeatIndex, chip);
+                      }
+                    }}
+                  >
                         <ChipSVG value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
                       </button>
                     </AnimatedChip>

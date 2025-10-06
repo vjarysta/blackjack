@@ -2,6 +2,7 @@ import React from "react";
 import { Icon } from "@iconify/react";
 import { palette } from "../../theme/palette";
 import { defaultTableAnchors, type SeatAnchor, type TableAnchors } from "./coords";
+import { PRIMARY_SEAT_INDEX, isSingleSeatMode } from "../../ui/config";
 
 export interface SeatVisualState {
   index: number;
@@ -97,7 +98,10 @@ export const TableSurfaceSVG: React.FC<TableSurfaceSVGProps> = ({ className, sea
         <textPath startOffset="50%" xlinkHref={`#${innerTextId}`}>INSURANCE PAYS 2 TO 1</textPath>
       </text>
 
-      {defaultTableAnchors.seats.map((anchor: SeatAnchor) => {
+      {(isSingleSeatMode
+        ? defaultTableAnchors.seats.filter((anchor) => anchor.index === PRIMARY_SEAT_INDEX)
+        : defaultTableAnchors.seats
+      ).map((anchor: SeatAnchor) => {
         const seat = seatByIndex.get(anchor.index);
         return (
           <g key={anchor.index}>

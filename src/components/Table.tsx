@@ -4,6 +4,7 @@ import { formatCurrency } from "../utils/currency";
 import { RuleBadges } from "./RuleBadges";
 import { TableLayout } from "./table/TableLayout";
 import type { ChipDenomination } from "../theme/palette";
+import { PRIMARY_SEAT_INDEX, isSingleSeatMode } from "../ui/config";
 
 interface TableProps {
   game: GameState;
@@ -88,6 +89,8 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
 
   const totalPendingBets = game.seats.reduce((sum, seat) => sum + seat.baseBet, 0);
 
+  const ensureSeatIndex = (seatIndex: number): number => (isSingleSeatMode ? PRIMARY_SEAT_INDEX : seatIndex);
+
   return (
     <div className="flex flex-1 flex-col gap-3 text-emerald-50">
       <header
@@ -147,13 +150,22 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
           game={game}
           activeChip={activeChip}
           onSelectChip={handleSelectChip}
-          onSit={actions.sit}
-          onLeave={actions.leave}
-          onAddChip={actions.addChip}
-          onRemoveChipValue={actions.removeChipValue}
-          onRemoveTopChip={actions.removeTopChip}
-          onInsurance={actions.takeInsurance}
-          onDeclineInsurance={actions.declineInsurance}
+          onSit={(seatIndex) => actions.sit(ensureSeatIndex(seatIndex))}
+          onLeave={(seatIndex) => {
+            if (isSingleSeatMode) {
+              return;
+            }
+            actions.leave(ensureSeatIndex(seatIndex));
+          }}
+          onAddChip={(seatIndex, denom) => actions.addChip(ensureSeatIndex(seatIndex), denom)}
+          onRemoveChipValue={(seatIndex, denom) => actions.removeChipValue(ensureSeatIndex(seatIndex), denom)}
+          onRemoveTopChip={(seatIndex) => actions.removeTopChip(ensureSeatIndex(seatIndex))}
+          onInsurance={(seatIndex, handId, amount) =>
+            actions.takeInsurance(ensureSeatIndex(seatIndex), handId, amount)
+          }
+          onDeclineInsurance={(seatIndex, handId) =>
+            actions.declineInsurance(ensureSeatIndex(seatIndex), handId)
+          }
           onHit={actions.playerHit}
           onStand={actions.playerStand}
           onDouble={actions.playerDouble}

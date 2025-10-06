@@ -2,6 +2,7 @@ import React from "react";
 import { Table } from "../components/Table";
 import { useGameStore } from "../store/useGameStore";
 import { Button } from "../components/ui/button";
+import { PRIMARY_SEAT_INDEX, isSingleSeatMode } from "../ui/config";
 
 export const App: React.FC = () => {
   const {
@@ -25,6 +26,26 @@ export const App: React.FC = () => {
     playDealer,
     nextRound
   } = useGameStore();
+
+  React.useEffect(() => {
+    if (!isSingleSeatMode) {
+      return;
+    }
+
+    const primarySeat = game.seats[PRIMARY_SEAT_INDEX];
+    if (primarySeat && !primarySeat.occupied) {
+      sit(PRIMARY_SEAT_INDEX);
+    }
+
+    game.seats.forEach((seat) => {
+      if (
+        seat.index !== PRIMARY_SEAT_INDEX &&
+        (seat.occupied || seat.baseBet > 0 || (Array.isArray(seat.chips) && seat.chips.length > 0))
+      ) {
+        leave(seat.index);
+      }
+    });
+  }, [game.seats, leave, sit]);
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-950 p-6 text-emerald-50">

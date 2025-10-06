@@ -9,6 +9,7 @@ import { Button } from "../ui/button";
 import { AnimatedCard } from "../animation/AnimatedCard";
 import { FlipCard } from "../animation/FlipCard";
 import { DEAL_STAGGER } from "../../utils/animConstants";
+import { PRIMARY_SEAT_INDEX, isSingleSeatMode } from "../../ui/config";
 
 interface CardLayerProps {
   game: GameState;
@@ -108,7 +109,7 @@ const renderInsurancePrompt = (
         <Button
           size="sm"
           className="h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
-          onClick={() => onInsurance(seat.index, hand.id, cappedAmount)}
+          onClick={() => onInsurance(isSingleSeatMode ? PRIMARY_SEAT_INDEX : seat.index, hand.id, cappedAmount)}
           disabled={disabled}
         >
           Take {formatCurrency(cappedAmount)}
@@ -117,7 +118,7 @@ const renderInsurancePrompt = (
           size="sm"
           variant="outline"
           className="h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
-          onClick={() => onDeclineInsurance(seat.index, hand.id)}
+          onClick={() => onDeclineInsurance(isSingleSeatMode ? PRIMARY_SEAT_INDEX : seat.index, hand.id)}
         >
           Skip
         </Button>
@@ -240,6 +241,14 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   const clusterRefCallbacks = React.useRef(new Map<number, (node: HTMLDivElement | null) => void>());
   const [clusterSizes, setClusterSizes] = React.useState<Record<number, SeatClusterSize>>({});
 
+  const seats = React.useMemo(() => {
+    if (!isSingleSeatMode) {
+      return game.seats;
+    }
+    const primarySeat = game.seats[PRIMARY_SEAT_INDEX];
+    return primarySeat ? [primarySeat] : [];
+  }, [game.seats]);
+
   const getClusterRef = React.useCallback(
     (seatIndex: number) => {
       if (!clusterRefCallbacks.current.has(seatIndex)) {
@@ -278,8 +287,8 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   );
 
   const seatLayouts = React.useMemo(
-    () => resolveSeatLayouts(game.seats, dimensions, clusterSizes),
-    [game.seats, dimensions, clusterSizes]
+    () => resolveSeatLayouts(seats, dimensions, clusterSizes),
+    [seats, dimensions, clusterSizes]
   );
 
   const anchorPoints = React.useMemo(() => getTableAnchorPoints(dimensions), [dimensions]);

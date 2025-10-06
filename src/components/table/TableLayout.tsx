@@ -7,6 +7,7 @@ import { CardLayer } from "./CardLayer";
 import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar } from "../hud/RoundActionBar";
+import { PRIMARY_SEAT_INDEX, isSingleSeatMode } from "../../ui/config";
 
 const BASE_W = 1850;
 const BASE_H = 780;
@@ -98,16 +99,24 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const scaledHeight = BASE_H * scale;
   const hudWidth = Math.max(scaledWidth, containerWidth - STAGE_PADDING * 2);
 
+  const seatsToDisplay = React.useMemo(() => {
+    if (!isSingleSeatMode) {
+      return game.seats;
+    }
+    const primarySeat = game.seats[PRIMARY_SEAT_INDEX];
+    return primarySeat ? [primarySeat] : [];
+  }, [game.seats]);
+
   const seatStates = React.useMemo<SeatVisualState[]>(
     () =>
-      mapSeatAnchors(game.seats, (seat, anchor) => ({
+      mapSeatAnchors(seatsToDisplay, (seat, anchor) => ({
         index: seat.index,
         occupied: seat.occupied,
         hasBet: seat.baseBet > 0,
         isActive: game.activeSeatIndex === seat.index,
-        label: seat.occupied || seat.baseBet > 0 ? "" : anchor.label
+        label: isSingleSeatMode ? "" : seat.occupied || seat.baseBet > 0 ? "" : anchor.label
       })),
-    [game]
+    [game.activeSeatIndex, seatsToDisplay]
   );
 
   return (
