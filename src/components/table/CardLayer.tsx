@@ -3,18 +3,12 @@ import { palette } from "../../theme/palette";
 import { toPixels, defaultTableAnchors } from "./coords";
 import type { GameState, Hand, Seat } from "../../engine/types";
 import { getHandTotals, isBust } from "../../engine/totals";
-import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { formatCurrency } from "../../utils/currency";
 import { PlayingCard } from "./PlayingCard";
 
 interface CardLayerProps {
   game: GameState;
   dimensions: { width: number; height: number };
-  onHit: () => void;
-  onStand: () => void;
-  onDouble: () => void;
-  onSplit: () => void;
-  onSurrender: () => void;
 }
 
 const renderCard = (
@@ -71,15 +65,7 @@ const SeatHandCluster = (
   );
 };
 
-export const CardLayer: React.FC<CardLayerProps> = ({
-  game,
-  dimensions,
-  onHit,
-  onStand,
-  onDouble,
-  onSplit,
-  onSurrender
-}) => {
+export const CardLayer: React.FC<CardLayerProps> = ({ game, dimensions }) => {
   const revealHole =
     game.phase === "dealerPlay" || game.phase === "settlement" || game.dealer.hand.isBlackjack;
   const dealerCards = game.dealer.hand.cards;

@@ -17,6 +17,10 @@
 - Unit tests are located in `tests/*.test.ts` and run with Vitest via `npm test`. Keep coverage alongside the engine modules they validate—e.g., shoe behaviour in `tests/shoe.test.ts`.
 - UI and layout smoke tests live in Playwright specs under `tests/e2e`. Use data-testid attributes that already exist on key nodes (`table-stage`, `bet-spot-*`) to avoid brittle selectors.
 - Before sharing work, run `npm test` (Vitest) and `npm run test:e2e` (Playwright). The Playwright suite assumes `npm run dev -- --host` is serving the app locally.
+Run `npm run verify` before opening a PR or handing work back to Codex. It chains linting, unit tests, the production build, and the Playwright e2e suite exactly like CI. If the Playwright browsers are missing locally, bootstrap them first with `npx playwright install --with-deps`.
+
+## Coding Style & Naming Conventions
+Write modern TypeScript with React function components. Follow the existing two-space indentation and favor named exports (`export const Table`). Derive Tailwind class strings through `src/utils/cn.ts` instead of ad hoc concatenation. ESLint (see `.eslintrc.cjs`) and Prettier alignment catch most formatting issues—run `npm run lint` or `npx prettier --check "src/**/*.ts*"` before pushing. Name state stores with the `useXStore` pattern and component files in PascalCase.
 
 ## Development Workflow
 - Install dependencies once with `npm install`.

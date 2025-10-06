@@ -147,15 +147,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               onInsurance={onInsurance}
               onDeclineInsurance={onDeclineInsurance}
             />
-            <CardLayer
-              game={game}
-              dimensions={{ width: BASE_W, height: BASE_H }}
-              onHit={onHit}
-              onStand={onStand}
-              onDouble={onDouble}
-              onSplit={onSplit}
-              onSurrender={onSurrender}
-            />
+            <CardLayer game={game} dimensions={{ width: BASE_W, height: BASE_H }} />
           </div>
         </div>
       </div>
