@@ -2,7 +2,9 @@ import { defaultRuleConfig } from "./rules.config";
 import { canDouble, canHit, canSplit, canSurrender, isBlackjackHand } from "./rules";
 import { bestTotal, getHandTotals, isBust } from "./totals";
 import { createShoe, discard as discardCards, drawCard, reshuffleIfNeeded } from "./shoe";
-import type { Card, GameState, Hand, Phase, RuleConfig } from "./types";
+import type { Card, GameState, Hand, Phase, RuleConfig, Seat } from "./types";
+
+const CHIP_DENOMINATIONS = [500, 100, 25, 5, 1];
 
 let handCounter = 0;
 
@@ -21,7 +23,25 @@ const cloneRules = (overrides?: Partial<RuleConfig>): RuleConfig => ({
 });
 
 const createEmptySeats = (): GameState["seats"] =>
-  Array.from({ length: 7 }, (_, index) => ({ index, occupied: false, hands: [], baseBet: 0 }));
+  Array.from({ length: 7 }, (_, index) => ({ index, occupied: false, hands: [], baseBet: 0, chips: [] }));
+
+const assignChipsFromAmount = (seat: Seat, amount: number): void => {
+  const normalized = Math.max(0, Math.floor(amount));
+  seat.baseBet = normalized;
+  seat.chips = [];
+  let remaining = normalized;
+  for (const denom of CHIP_DENOMINATIONS) {
+    const count = Math.floor(remaining / denom);
+    for (let i = 0; i < count; i += 1) {
+      seat.chips.push(denom);
+    }
+    remaining -= count * denom;
+  }
+};
+
+const recalculateBaseBet = (seat: Seat): void => {
+  seat.baseBet = seat.chips.reduce((sum, value) => sum + value, 0);
+};
 
 const initialDealerHand = (): Hand => ({
   id: "dealer",
@@ -186,11 +206,48 @@ export const leave = (state: GameState, seatIndex: number): void => {
   seat.occupied = false;
   seat.baseBet = 0;
   seat.hands = [];
+  seat.chips = [];
 };
 
 export const setBet = (state: GameState, seatIndex: number, amount: number): void => {
   const seat = state.seats[seatIndex];
-  seat.baseBet = Math.max(0, Math.floor(amount));
+  assignChipsFromAmount(seat, amount);
+};
+
+export const addChip = (state: GameState, seatIndex: number, value: number): void => {
+  const seat = state.seats[seatIndex];
+  if (!seat.chips) {
+    seat.chips = [];
+  }
+  const normalized = Math.max(0, Math.floor(value));
+  if (normalized <= 0) {
+    return;
+  }
+  seat.chips.push(normalized);
+  recalculateBaseBet(seat);
+};
+
+export const removeChipValue = (state: GameState, seatIndex: number, value: number): void => {
+  const seat = state.seats[seatIndex];
+  if (!seat.chips || seat.chips.length === 0) {
+    return;
+  }
+  const normalized = Math.max(0, Math.floor(value));
+  const index = seat.chips.lastIndexOf(normalized);
+  if (index === -1) {
+    return;
+  }
+  seat.chips.splice(index, 1);
+  recalculateBaseBet(seat);
+};
+
+export const removeTopChip = (state: GameState, seatIndex: number): void => {
+  const seat = state.seats[seatIndex];
+  if (!seat.chips || seat.chips.length === 0) {
+    return;
+  }
+  seat.chips.pop();
+  recalculateBaseBet(seat);
 };
 
 export const deal = (state: GameState): void => {

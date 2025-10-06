@@ -15,6 +15,9 @@ import {
   sit,
   leave,
   setBet,
+  addChip,
+  removeChipValue,
+  removeTopChip,
   takeInsurance
 } from "../engine/engine";
 import type { GameState } from "../engine/types";
@@ -25,6 +28,22 @@ const SEATS_KEY = "blackjack_seats";
 type SeatPersist = {
   occupied: boolean;
   baseBet: number;
+  chips: number[];
+};
+
+const CHIP_VALUES = [500, 100, 25, 5, 1];
+
+const computeChipsFromAmount = (amount: number): number[] => {
+  const chips: number[] = [];
+  let remaining = Math.max(0, Math.floor(amount));
+  for (const value of CHIP_VALUES) {
+    const count = Math.floor(remaining / value);
+    for (let i = 0; i < count; i += 1) {
+      chips.push(value);
+    }
+    remaining -= count * value;
+  }
+  return chips;
 };
 
 const persistState = (state: GameState): void => {
@@ -32,7 +51,11 @@ const persistState = (state: GameState): void => {
     return;
   }
   localStorage.setItem(BANKROLL_KEY, state.bankroll.toString());
-  const seats: SeatPersist[] = state.seats.map((seat) => ({ occupied: seat.occupied, baseBet: seat.baseBet }));
+  const seats: SeatPersist[] = state.seats.map((seat) => ({
+    occupied: seat.occupied,
+    baseBet: seat.baseBet,
+    chips: seat.chips ?? []
+  }));
   localStorage.setItem(SEATS_KEY, JSON.stringify(seats));
 };
 
@@ -57,10 +80,13 @@ const hydrateGame = (): GameState => {
         if (!persisted) {
           return seat;
         }
+        const chips = persisted.chips ?? computeChipsFromAmount(persisted.baseBet);
+        const baseBet = chips.reduce((sum, value) => sum + value, 0);
         return {
           ...seat,
           occupied: persisted.occupied,
-          baseBet: persisted.baseBet
+          baseBet,
+          chips
         };
       });
     } catch {
@@ -77,6 +103,9 @@ type GameStore = {
   sit: (seatIndex: number) => void;
   leave: (seatIndex: number) => void;
   setBet: (seatIndex: number, amount: number) => void;
+  addChip: (seatIndex: number, value: number) => void;
+  removeChipValue: (seatIndex: number, value: number) => void;
+  removeTopChip: (seatIndex: number) => void;
   deal: () => void;
   playerHit: () => void;
   playerStand: () => void;
@@ -118,6 +147,27 @@ export const useGameStore = create<GameStore>((set) => ({
   setBet: (seatIndex, amount) => {
     set((store) => {
       const nextGame = mutateGame(store.game, (draft) => setBet(draft, seatIndex, amount));
+      persistState(nextGame);
+      return { game: nextGame, error: null };
+    });
+  },
+  addChip: (seatIndex, value) => {
+    set((store) => {
+      const nextGame = mutateGame(store.game, (draft) => addChip(draft, seatIndex, value));
+      persistState(nextGame);
+      return { game: nextGame, error: null };
+    });
+  },
+  removeChipValue: (seatIndex, value) => {
+    set((store) => {
+      const nextGame = mutateGame(store.game, (draft) => removeChipValue(draft, seatIndex, value));
+      persistState(nextGame);
+      return { game: nextGame, error: null };
+    });
+  },
+  removeTopChip: (seatIndex) => {
+    set((store) => {
+      const nextGame = mutateGame(store.game, (draft) => removeTopChip(draft, seatIndex));
       persistState(nextGame);
       return { game: nextGame, error: null };
     });
