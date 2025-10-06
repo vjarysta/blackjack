@@ -19,6 +19,7 @@ import {
   takeInsurance
 } from "../engine/engine";
 import type { GameState, Seat } from "../engine/types";
+import { isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
 
 const BANKROLL_KEY = "blackjack_bankroll";
 const SEATS_KEY = "blackjack_seats";
@@ -76,6 +77,14 @@ const hydrateGame = (): GameState => {
     } catch {
       // ignore hydration failures
     }
+  }
+  if (isSingleSeatMode) {
+    base.seats = base.seats.map((seat) => {
+      if (seat.index === PRIMARY_SEAT_INDEX) {
+        return seat;
+      }
+      return { ...seat, occupied: false, baseBet: 0, chips: [], hands: [] };
+    });
   }
   return base;
 };

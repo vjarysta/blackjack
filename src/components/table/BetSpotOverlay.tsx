@@ -9,6 +9,7 @@ import type { GameState, Seat } from "../../engine/types";
 import { formatCurrency } from "../../utils/currency";
 import { AnimatedChip } from "../animation/AnimatedChip";
 import { ANIM, REDUCED } from "../../utils/animConstants";
+import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
 
 interface BetSpotOverlayProps {
   game: GameState;
@@ -34,7 +35,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
   onRemoveTopChip
 }) => {
   const isBettingPhase = game.phase === "betting";
-  const seats = game.seats;
+  const seats = filterSeatsForMode(game.seats);
   const totalBets = seats.reduce((sum, seat) => sum + seat.baseBet, 0);
 
   const handleAddChip = (seat: Seat): void => {
@@ -77,8 +78,8 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
         const scaleX = dimensions.width / defaultTableAnchors.viewBox.width;
         const circleSize = defaultTableAnchors.seatRadius * 2 * scaleX;
         const chipStack = Array.isArray(seat.chips) ? seat.chips : [];
-        const showSit = isBettingPhase && !seat.occupied;
-        const showLeave = seat.occupied && isBettingPhase;
+        const showSit = !isSingleSeatMode && isBettingPhase && !seat.occupied;
+        const showLeave = !isSingleSeatMode && seat.occupied && isBettingPhase;
         const visibleStart = Math.max(0, chipStack.length - MAX_VISIBLE_CHIPS);
         const visibleChips = chipStack.slice(visibleStart);
         const overflow = chipStack.length - visibleChips.length;
@@ -95,7 +96,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                 onClick={() => handleAddChip(seat)}
                 onContextMenu={(event) => handleContextMenu(event, seat)}
                 disabled={!isBettingPhase}
-                aria-label={`Bet spot for seat ${seat.index + 1}`}
+                aria-label={isSingleSeatMode ? "Your bet spot" : `Bet spot for seat ${seat.index + 1}`}
               />
               <motion.div
                 aria-hidden

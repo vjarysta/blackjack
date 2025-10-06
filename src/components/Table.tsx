@@ -4,6 +4,7 @@ import { formatCurrency } from "../utils/currency";
 import { RuleBadges } from "./RuleBadges";
 import { TableLayout } from "./table/TableLayout";
 import type { ChipDenomination } from "../theme/palette";
+import { filterSeatsForMode, isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
 
 interface TableProps {
   game: GameState;
@@ -86,7 +87,30 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
     setActiveChip(value);
   };
 
-  const totalPendingBets = game.seats.reduce((sum, seat) => sum + seat.baseBet, 0);
+  const visibleSeats = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
+
+  const totalPendingBets = visibleSeats.reduce((sum, seat) => sum + seat.baseBet, 0);
+
+  const restrictSeatAction = React.useCallback(
+    <Args extends unknown[]>(fn: (seatIndex: number, ...rest: Args) => void) =>
+      isSingleSeatMode
+        ? (_seatIndex: number, ...rest: Args) => fn(PRIMARY_SEAT_INDEX, ...rest)
+        : fn,
+    []
+  );
+
+  const restrictedActions = React.useMemo(
+    () => ({
+      sit: restrictSeatAction(actions.sit),
+      leave: restrictSeatAction(actions.leave),
+      addChip: restrictSeatAction(actions.addChip),
+      removeChipValue: restrictSeatAction(actions.removeChipValue),
+      removeTopChip: restrictSeatAction(actions.removeTopChip),
+      takeInsurance: restrictSeatAction(actions.takeInsurance),
+      declineInsurance: restrictSeatAction(actions.declineInsurance)
+    }),
+    [actions, restrictSeatAction]
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-3 text-emerald-50">
@@ -147,13 +171,13 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
           game={game}
           activeChip={activeChip}
           onSelectChip={handleSelectChip}
-          onSit={actions.sit}
-          onLeave={actions.leave}
-          onAddChip={actions.addChip}
-          onRemoveChipValue={actions.removeChipValue}
-          onRemoveTopChip={actions.removeTopChip}
-          onInsurance={actions.takeInsurance}
-          onDeclineInsurance={actions.declineInsurance}
+          onSit={restrictedActions.sit}
+          onLeave={restrictedActions.leave}
+          onAddChip={restrictedActions.addChip}
+          onRemoveChipValue={restrictedActions.removeChipValue}
+          onRemoveTopChip={restrictedActions.removeTopChip}
+          onInsurance={restrictedActions.takeInsurance}
+          onDeclineInsurance={restrictedActions.declineInsurance}
           onHit={actions.playerHit}
           onStand={actions.playerStand}
           onDouble={actions.playerDouble}

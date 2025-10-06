@@ -9,6 +9,7 @@ import { Button } from "../ui/button";
 import { AnimatedCard } from "../animation/AnimatedCard";
 import { FlipCard } from "../animation/FlipCard";
 import { DEAL_STAGGER } from "../../utils/animConstants";
+import { filterSeatsForMode } from "../../ui/config";
 
 interface CardLayerProps {
   game: GameState;
@@ -277,9 +278,11 @@ export const CardLayer: React.FC<CardLayerProps> = ({
     []
   );
 
+  const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
+
   const seatLayouts = React.useMemo(
-    () => resolveSeatLayouts(game.seats, dimensions, clusterSizes),
-    [game.seats, dimensions, clusterSizes]
+    () => resolveSeatLayouts(seatsForMode, dimensions, clusterSizes),
+    [seatsForMode, dimensions, clusterSizes]
   );
 
   const anchorPoints = React.useMemo(() => getTableAnchorPoints(dimensions), [dimensions]);
