@@ -44,6 +44,7 @@ export interface Seat {
   occupied: boolean;
   hands: Hand[];
   baseBet: number;
+  chips: number[];
 }
 
 export interface Dealer {

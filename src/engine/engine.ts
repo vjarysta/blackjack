@@ -6,6 +6,20 @@ import type { Card, GameState, Hand, Phase, RuleConfig } from "./types";
 
 let handCounter = 0;
 
+const CHIP_DENOMINATIONS = [500, 100, 25, 5, 1];
+
+export const convertAmountToChips = (amount: number): number[] => {
+  const chips: number[] = [];
+  let remaining = Math.max(0, Math.floor(amount));
+  for (const value of CHIP_DENOMINATIONS) {
+    while (remaining >= value) {
+      chips.push(value);
+      remaining -= value;
+    }
+  }
+  return chips;
+};
+
 const createHand = (seatIndex: number, bet: number): Hand => ({
   id: `hand-${seatIndex}-${handCounter += 1}`,
   cards: [],
@@ -21,7 +35,7 @@ const cloneRules = (overrides?: Partial<RuleConfig>): RuleConfig => ({
 });
 
 const createEmptySeats = (): GameState["seats"] =>
-  Array.from({ length: 7 }, (_, index) => ({ index, occupied: false, hands: [], baseBet: 0 }));
+  Array.from({ length: 7 }, (_, index) => ({ index, occupied: false, hands: [], baseBet: 0, chips: [] }));
 
 const initialDealerHand = (): Hand => ({
   id: "dealer",
@@ -186,11 +200,16 @@ export const leave = (state: GameState, seatIndex: number): void => {
   seat.occupied = false;
   seat.baseBet = 0;
   seat.hands = [];
+  seat.chips = [];
 };
 
 export const setBet = (state: GameState, seatIndex: number, amount: number): void => {
   const seat = state.seats[seatIndex];
   seat.baseBet = Math.max(0, Math.floor(amount));
+  if (!Array.isArray(seat.chips)) {
+    seat.chips = [];
+  }
+  seat.chips = convertAmountToChips(seat.baseBet);
 };
 
 export const deal = (state: GameState): void => {

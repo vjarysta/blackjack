@@ -11,60 +11,16 @@ interface BetSpotOverlayProps {
   game: GameState;
   dimensions: { width: number; height: number };
   activeChip: ChipDenomination;
-  onSetBet: (seatIndex: number, amount: number) => void;
   onSit: (seatIndex: number) => void;
   onLeave: (seatIndex: number) => void;
+  onAddChip: (seatIndex: number, denom: number) => void;
+  onRemoveChipValue: (seatIndex: number, denom: number) => void;
+  onRemoveTopChip: (seatIndex: number) => void;
   onInsurance: (seatIndex: number, handId: string, amount: number) => void;
   onDeclineInsurance: (seatIndex: number, handId: string) => void;
 }
 
-const CHIP_ORDER: ChipDenomination[] = [500, 100, 25, 5, 1];
-
-const computeChipStack = (amount: number): ChipDenomination[] => {
-  const stack: ChipDenomination[] = [];
-  let remaining = Math.max(0, Math.floor(amount));
-  for (const value of CHIP_ORDER) {
-    const count = Math.floor(remaining / value);
-    for (let i = 0; i < count; i += 1) {
-      stack.push(value);
-    }
-    remaining -= count * value;
-  }
-  return stack;
-};
-
-const renderChipStack = (chips: ChipDenomination[]): React.ReactNode => {
-  if (chips.length === 0) {
-    return null;
-  }
-  const maxVisible = 5;
-  const visible = chips.slice(0, maxVisible);
-  const overflow = chips.length - visible.length;
-  return (
-    <div className="relative flex h-[60px] w-[60px] items-center justify-center">
-      {visible.map((chip, index) => (
-        <ChipSVG
-          key={`${chip}-${index}`}
-          value={chip}
-          size={42}
-          shadow={index === visible.length - 1}
-          className="absolute"
-          style={{ transform: `translateY(-${index * 4}px)` }}
-        />
-      ))}
-      {overflow > 0 && (
-        <span
-          className="absolute bottom-[-18px] text-[10px] font-semibold uppercase tracking-[0.3em]"
-          style={{ color: palette.subtleText }}
-        >
-          +{overflow}
-        </span>
-      )}
-    </div>
-  );
-};
-
-const totalPendingBets = (seats: Seat[]): number => seats.reduce((sum, seat) => sum + seat.baseBet, 0);
+const MAX_VISIBLE_CHIPS = 6;
 
 const seatInsurancePrompt = (
   seat: Seat,
@@ -83,17 +39,13 @@ const seatInsurancePrompt = (
   return (
     <div
       key={hand.id}
-      className="pointer-events-auto absolute left-1/2 top-full z-10 mt-3 -translate-x-1/2 rounded-lg border border-[#c8a24a]/60 bg-[#0d3024]/95 px-3 py-2 text-xs shadow-lg"
+      className="pointer-events-auto absolute left-1/2 top-full z-30 mt-3 -translate-x-1/2 rounded-lg border border-[#c8a24a]/60 bg-[#0d3024]/95 px-3 py-2 text-xs shadow-lg"
     >
       <p className="font-semibold tracking-wide" style={{ color: palette.gold }}>
         Insurance?
       </p>
       <div className="mt-2 flex gap-2">
-        <Button
-          size="sm"
-          onClick={() => onInsurance(seat.index, hand.id, cappedAmount)}
-          disabled={disabled}
-        >
+        <Button size="sm" onClick={() => onInsurance(seat.index, hand.id, cappedAmount)} disabled={disabled}>
           Take {formatCurrency(cappedAmount)}
         </Button>
         <Button size="sm" variant="outline" onClick={() => onDeclineInsurance(seat.index, hand.id)}>
@@ -108,15 +60,17 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
   game,
   dimensions,
   activeChip,
-  onSetBet,
   onSit,
   onLeave,
+  onAddChip,
+  onRemoveChipValue,
+  onRemoveTopChip,
   onInsurance,
   onDeclineInsurance
 }) => {
   const isBettingPhase = game.phase === "betting";
   const seats = game.seats;
-  const totalBets = totalPendingBets(seats);
+  const totalBets = seats.reduce((sum, seat) => sum + seat.baseBet, 0);
 
   const handleAddChip = (seat: Seat): void => {
     if (!isBettingPhase) {
@@ -126,52 +80,89 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
       onSit(seat.index);
     }
     const remainingBankroll = Math.max(0, Math.floor(game.bankroll - (totalBets - seat.baseBet)));
-    if (remainingBankroll <= 0) {
+    const nextBet = seat.baseBet + activeChip;
+    if (remainingBankroll <= 0 || nextBet > game.rules.maxBet) {
       return;
     }
-    const nextAmount = Math.min(seat.baseBet + activeChip, seat.baseBet + remainingBankroll);
-    if (nextAmount !== seat.baseBet) {
-      onSetBet(seat.index, nextAmount);
+    const denom = Math.min(activeChip, remainingBankroll);
+    if (denom > 0) {
+      onAddChip(seat.index, denom);
     }
   };
 
-  const handleRemoveChip = (seat: Seat): void => {
+  const handleContextMenu = (event: React.MouseEvent, seat: Seat): void => {
+    event.preventDefault();
     if (!isBettingPhase) {
       return;
     }
-    const nextAmount = Math.max(0, seat.baseBet - activeChip);
-    if (nextAmount !== seat.baseBet) {
-      onSetBet(seat.index, nextAmount);
+    const target = event.target as HTMLElement;
+    const value = Number(target.dataset.chipValue);
+    if (!Number.isNaN(value)) {
+      onRemoveChipValue(seat.index, value);
+    } else {
+      onRemoveTopChip(seat.index);
     }
   };
 
   return (
-    <div className="pointer-events-none absolute inset-0">
+    <div className="pointer-events-none absolute inset-0 z-20">
       {seats.map((seat) => {
         const anchor = defaultTableAnchors.seats[seat.index];
         const { x, y } = toPixels(anchor.x, anchor.y, dimensions);
         const scaleX = dimensions.width / defaultTableAnchors.viewBox.width;
         const circleSize = defaultTableAnchors.seatRadius * 2 * scaleX;
-        const chipStack = computeChipStack(seat.baseBet);
+        const chipStack = Array.isArray(seat.chips) ? seat.chips : [];
         const showSit = isBettingPhase && !seat.occupied;
+        const visibleStart = Math.max(0, chipStack.length - MAX_VISIBLE_CHIPS);
+        const visibleChips = chipStack.slice(visibleStart);
+        const overflow = chipStack.length - visibleChips.length;
+
         return (
-          <div key={seat.index} className="absolute" style={{ left: x, top: y }}>
+          <div key={seat.index} className="absolute" style={{ left: x, top: y }} data-testid={`seat-${seat.index}`}>
             <button
               type="button"
+              data-testid={`bet-spot-${seat.index}`}
               className="pointer-events-auto -translate-x-1/2 -translate-y-1/2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8a24a]"
               style={{ width: circleSize, height: circleSize, backgroundColor: "transparent" }}
               onClick={() => handleAddChip(seat)}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                handleRemoveChip(seat);
-              }}
+              onContextMenu={(event) => handleContextMenu(event, seat)}
               disabled={!isBettingPhase}
               aria-label={`Bet spot for seat ${seat.index + 1}`}
             />
             <div className="pointer-events-none flex -translate-x-1/2 -translate-y-[110%] flex-col items-center gap-2">
-              {renderChipStack(chipStack)}
+              <div className="relative flex h-[64px] w-[64px] items-center justify-center">
+                {visibleChips.map((chip, index) => {
+                  const stackIndex = visibleStart + index;
+                  return (
+                    <button
+                      key={`${seat.index}-${stackIndex}-${chip}`}
+                      type="button"
+                      data-chip-value={chip}
+                      className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: "50%", top: `calc(50% - ${index * 6}px)` }}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        if (isBettingPhase) {
+                          onRemoveChipValue(seat.index, chip);
+                        }
+                      }}
+                    >
+                      <ChipSVG value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
+                    </button>
+                  );
+                })}
+                {overflow > 0 && (
+                  <span
+                    className="pointer-events-none absolute bottom-[-18px] text-[10px] font-semibold uppercase tracking-[0.3em]"
+                    style={{ color: palette.subtleText }}
+                  >
+                    +{overflow}
+                  </span>
+                )}
+              </div>
               {seat.baseBet > 0 && (
                 <span
+                  data-testid={`seat-${seat.index}-bet`}
                   className="rounded-full px-3 py-1 text-xs font-semibold tracking-[0.3em]"
                   style={{ backgroundColor: "rgba(12, 46, 36, 0.8)", color: palette.line }}
                 >

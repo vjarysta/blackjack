@@ -5,7 +5,6 @@ import { toPixels, defaultTableAnchors } from "./coords";
 import type { GameState, Hand, Seat } from "../../engine/types";
 import { getHandTotals, isBust } from "../../engine/totals";
 import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
-import { Button } from "../ui/button";
 import { formatCurrency } from "../../utils/currency";
 
 interface CardLayerProps {
@@ -88,43 +87,6 @@ const SeatHandCluster = (
   );
 };
 
-const ActiveActionBar: React.FC<{
-  hand: Hand;
-  game: GameState;
-  onHit: () => void;
-  onStand: () => void;
-  onDouble: () => void;
-  onSplit: () => void;
-  onSurrender: () => void;
-}> = ({ hand, game, onHit, onStand, onDouble, onSplit, onSurrender }) => {
-  const legal = {
-    hit: canHit(hand),
-    stand: !hand.isResolved,
-    double: canDouble(hand, game.rules) && game.bankroll >= hand.bet,
-    split: canSplit(hand, game.seats[hand.parentSeatIndex], game.rules) && game.bankroll >= hand.bet,
-    surrender: canSurrender(hand, game.rules)
-  };
-  return (
-    <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-[#c8a24a]/70 bg-[#0e3125]/95 px-4 py-2 text-xs uppercase tracking-[0.3em]">
-      <Button size="sm" onClick={onHit} disabled={!legal.hit}>
-        Hit
-      </Button>
-      <Button size="sm" variant="outline" onClick={onStand} disabled={!legal.stand}>
-        Stand
-      </Button>
-      <Button size="sm" variant="outline" onClick={onDouble} disabled={!legal.double}>
-        Double
-      </Button>
-      <Button size="sm" variant="outline" onClick={onSplit} disabled={!legal.split}>
-        Split
-      </Button>
-      <Button size="sm" variant="outline" onClick={onSurrender} disabled={!legal.surrender}>
-        Surrender
-      </Button>
-    </div>
-  );
-};
-
 export const CardLayer: React.FC<CardLayerProps> = ({
   game,
   dimensions,
@@ -151,7 +113,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   const dealerTotals = getHandTotals(game.dealer.hand);
 
   return (
-    <div className="pointer-events-none absolute inset-0 text-sm" style={{ color: palette.text }}>
+    <div className="pointer-events-none absolute inset-0 z-30 text-sm" style={{ color: palette.text }}>
       <div
         className="flex flex-col items-center gap-3"
         style={{
@@ -199,8 +161,6 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         }
 
         hands.forEach((hand, handIndex) => {
-          const isActiveHand =
-            game.activeSeatIndex === seat.index && game.activeHandId === hand.id && game.phase === "playerActions";
           const cards = hand.cards.map((card, index) => {
             return renderCard(`${card.rank}${card.suit}`, `${hand.id}-${index}`);
           });
@@ -229,17 +189,6 @@ export const CardLayer: React.FC<CardLayerProps> = ({
                 </div>
               )}
               {renderHandBadges(hand)}
-              {isActiveHand && (
-                <ActiveActionBar
-                  hand={hand}
-                  game={game}
-                  onHit={onHit}
-                  onStand={onStand}
-                  onDouble={onDouble}
-                  onSplit={onSplit}
-                  onSurrender={onSurrender}
-                />
-              )}
             </div>
           );
         });

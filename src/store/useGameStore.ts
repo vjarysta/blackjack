@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  convertAmountToChips,
   deal,
   declineInsurance,
   finishInsurance,
@@ -17,7 +18,7 @@ import {
   setBet,
   takeInsurance
 } from "../engine/engine";
-import type { GameState } from "../engine/types";
+import type { GameState, Seat } from "../engine/types";
 
 const BANKROLL_KEY = "blackjack_bankroll";
 const SEATS_KEY = "blackjack_seats";
@@ -25,6 +26,7 @@ const SEATS_KEY = "blackjack_seats";
 type SeatPersist = {
   occupied: boolean;
   baseBet: number;
+  chips: number[];
 };
 
 const persistState = (state: GameState): void => {
@@ -32,7 +34,11 @@ const persistState = (state: GameState): void => {
     return;
   }
   localStorage.setItem(BANKROLL_KEY, state.bankroll.toString());
-  const seats: SeatPersist[] = state.seats.map((seat) => ({ occupied: seat.occupied, baseBet: seat.baseBet }));
+  const seats: SeatPersist[] = state.seats.map((seat) => ({
+    occupied: seat.occupied,
+    baseBet: seat.baseBet,
+    chips: seat.chips ?? []
+  }));
   localStorage.setItem(SEATS_KEY, JSON.stringify(seats));
 };
 
@@ -60,7 +66,11 @@ const hydrateGame = (): GameState => {
         return {
           ...seat,
           occupied: persisted.occupied,
-          baseBet: persisted.baseBet
+          baseBet: persisted.baseBet,
+          chips:
+            Array.isArray(persisted.chips) && persisted.chips.length > 0
+              ? persisted.chips
+              : convertAmountToChips(persisted.baseBet)
         };
       });
     } catch {
@@ -77,6 +87,9 @@ type GameStore = {
   sit: (seatIndex: number) => void;
   leave: (seatIndex: number) => void;
   setBet: (seatIndex: number, amount: number) => void;
+  addChip: (seatIndex: number, denom: number) => void;
+  removeChipValue: (seatIndex: number, denom: number) => void;
+  removeTopChip: (seatIndex: number) => void;
   deal: () => void;
   playerHit: () => void;
   playerStand: () => void;
@@ -95,6 +108,15 @@ const mutateGame = (state: GameState, mutator: (draft: GameState) => void): Game
   const next = structuredClone(state);
   mutator(next);
   return next;
+};
+
+const sumChips = (chips: number[]): number => chips.reduce((total, value) => total + value, 0);
+
+const ensureChipArray = (seat: Seat): number[] => {
+  if (!Array.isArray(seat.chips)) {
+    seat.chips = [];
+  }
+  return seat.chips;
 };
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -118,6 +140,47 @@ export const useGameStore = create<GameStore>((set) => ({
   setBet: (seatIndex, amount) => {
     set((store) => {
       const nextGame = mutateGame(store.game, (draft) => setBet(draft, seatIndex, amount));
+      persistState(nextGame);
+      return { game: nextGame, error: null };
+    });
+  },
+  addChip: (seatIndex, denom) => {
+    set((store) => {
+      const nextGame = mutateGame(store.game, (draft) => {
+        const seat = draft.seats[seatIndex];
+        const chips = ensureChipArray(seat);
+        chips.push(Math.floor(denom));
+        seat.baseBet = sumChips(chips);
+      });
+      persistState(nextGame);
+      return { game: nextGame, error: null };
+    });
+  },
+  removeChipValue: (seatIndex, denom) => {
+    set((store) => {
+      const nextGame = mutateGame(store.game, (draft) => {
+        const seat = draft.seats[seatIndex];
+        const chips = ensureChipArray(seat);
+        const targetIndex = chips.lastIndexOf(Math.floor(denom));
+        if (targetIndex >= 0) {
+          chips.splice(targetIndex, 1);
+          seat.baseBet = sumChips(chips);
+        }
+      });
+      persistState(nextGame);
+      return { game: nextGame, error: null };
+    });
+  },
+  removeTopChip: (seatIndex) => {
+    set((store) => {
+      const nextGame = mutateGame(store.game, (draft) => {
+        const seat = draft.seats[seatIndex];
+        const chips = ensureChipArray(seat);
+        if (chips.length > 0) {
+          chips.pop();
+          seat.baseBet = sumChips(chips);
+        }
+      });
       persistState(nextGame);
       return { game: nextGame, error: null };
     });
