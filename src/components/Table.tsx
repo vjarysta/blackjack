@@ -79,7 +79,7 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
     recalcLayoutTop();
   }, [recalcLayoutTop, viewportHeight]);
 
-  const MAIN_BOTTOM_PADDING = 24;
+  const MAIN_BOTTOM_PADDING = 12;
   const availableHeight = Math.max(viewportHeight - layoutTop - MAIN_BOTTOM_PADDING, 320);
 
   const handleSelectChip = (value: ChipDenomination) => {
@@ -89,54 +89,60 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
   const totalPendingBets = game.seats.reduce((sum, seat) => sum + seat.baseBet, 0);
 
   return (
-    <div className="flex flex-1 flex-col gap-6 text-emerald-50">
+    <div className="flex flex-1 flex-col gap-3 text-emerald-50">
       <header
         ref={headerRef}
-        className="rounded-3xl border border-[#c8a24a]/40 bg-[#0c2c22]/80 px-6 py-5 shadow-[0_20px_45px_rgba(0,0,0,0.45)] backdrop-blur"
+        className="rounded-3xl border border-[#c8a24a]/35 bg-[#0c2c22]/65 px-4 py-2 shadow-[0_16px_36px_rgba(0,0,0,0.4)] backdrop-blur"
       >
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.45em] text-emerald-200">Casino Blackjack</p>
-            <h1 className="text-3xl font-semibold tracking-[0.4em] text-emerald-50">Blackjack</h1>
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-emerald-200">
-              <span>
-                Bankroll <span className="font-semibold text-emerald-50">{formatCurrency(game.bankroll)}</span>
-              </span>
-              <span>Pending {formatCurrency(totalPendingBets)}</span>
-              <span>
-                Min {formatCurrency(game.rules.minBet)} · Max {formatCurrency(game.rules.maxBet)}
-              </span>
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-emerald-200">
+              <span>Casino Blackjack</span>
+              <RuleBadges rules={game.rules} />
+            </div>
+            <div className="flex flex-wrap items-baseline gap-3">
+              <h1 className="text-lg font-semibold uppercase tracking-[0.24em] text-emerald-50">Blackjack</h1>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-emerald-200">
+                <span>
+                  Bankroll <span className="font-semibold text-emerald-50">{formatCurrency(game.bankroll)}</span>
+                </span>
+                <span>Pending {formatCurrency(totalPendingBets)}</span>
+                <span>
+                  Min {formatCurrency(game.rules.minBet)} · Max {formatCurrency(game.rules.maxBet)}
+                </span>
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4 text-xs uppercase tracking-[0.3em] text-emerald-300 md:grid-cols-3">
+          <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-emerald-300 sm:grid-cols-5">
             <div>
-              <p className="text-emerald-400/80">Round</p>
-              <p className="mt-1 text-lg font-semibold text-emerald-50">{game.roundCount}</p>
+              <p className="text-emerald-400/70">Round</p>
+              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.roundCount}</p>
             </div>
             <div>
-              <p className="text-emerald-400/80">Phase</p>
-              <p className="mt-1 text-lg font-semibold text-emerald-50">{game.phase}</p>
+              <p className="text-emerald-400/70">Phase</p>
+              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.phase}</p>
             </div>
             <div>
-              <p className="text-emerald-400/80">Cards</p>
-              <p className="mt-1 text-lg font-semibold text-emerald-50">{game.shoe.cards.length}</p>
+              <p className="text-emerald-400/70">Cards</p>
+              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.cards.length}</p>
             </div>
             <div>
-              <p className="text-emerald-400/80">Discard</p>
-              <p className="mt-1 text-lg font-semibold text-emerald-50">{game.shoe.discard.length}</p>
+              <p className="text-emerald-400/70">Discard</p>
+              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.discard.length}</p>
             </div>
             <div>
-              <p className="text-emerald-400/80">Penetration</p>
-              <p className="mt-1 text-lg font-semibold text-emerald-50">{penetrationPercentage(game)}</p>
-            </div>
-            <div className="col-span-2 md:col-span-1">
-              <RuleBadges rules={game.rules} />
+              <p className="text-emerald-400/70">Penetration</p>
+              <p className="mt-0.5 text-base font-semibold text-emerald-50">{penetrationPercentage(game)}</p>
             </div>
           </div>
         </div>
       </header>
 
-      <div ref={layoutContainerRef} className="flex min-h-0" style={{ height: availableHeight }}>
+      <div
+        ref={layoutContainerRef}
+        className="flex min-h-0 justify-center"
+        style={{ height: availableHeight }}
+      >
         <TableLayout
           game={game}
           activeChip={activeChip}
