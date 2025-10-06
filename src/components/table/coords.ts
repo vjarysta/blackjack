@@ -35,7 +35,7 @@ export interface TableAnchors {
   innerTextPath: string;
 }
 
-const VIEWBOX_WIDTH = 1200;
+const VIEWBOX_WIDTH = 1500;
 const VIEWBOX_HEIGHT = 800;
 
 const SEAT_COUNT = 5;
@@ -77,36 +77,36 @@ export const defaultTableAnchors: TableAnchors = {
     height: VIEWBOX_HEIGHT
   },
   seatRadius: 56,
-  seatLabelOffset: 96,
+  seatLabelOffset: 104,
   seatArc: {
     cx: VIEWBOX_WIDTH / 2,
     cy: 492,
-    rx: 400,
+    rx: 500,
     ry: 220,
     startDeg: START_DEG,
     endDeg: END_DEG
   },
-  seats: computeSeatAnchors(VIEWBOX_WIDTH / 2, 492, 400, 220, SEAT_COUNT).map((anchor, index) => ({
+  seats: computeSeatAnchors(VIEWBOX_WIDTH / 2, 492, 500, 220, SEAT_COUNT).map((anchor, index) => ({
     ...anchor,
     index,
     label: `Seat ${index + 1}`
   })),
   dealerArea: {
-    x: 470,
+    x: 588,
     y: 138,
-    width: 260,
+    width: 325,
     height: 130
   },
   shoeAnchor: {
-    x: 930,
+    x: 1165,
     y: 200
   },
   discardAnchor: {
-    x: 270,
+    x: 338,
     y: 200
   },
-  outerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 210, 350, 180),
-  innerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 288, 288, 150)
+  outerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 202, 438, 180),
+  innerTextPath: buildArcPath(VIEWBOX_WIDTH / 2, 248, 360, 150)
 };
 
 export const mapSeatAnchors = <T>(seats: Seat[], mapper: (seat: Seat, anchor: SeatAnchor) => T): T[] =>
