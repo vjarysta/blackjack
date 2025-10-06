@@ -1,11 +1,14 @@
 import React from "react";
 import { palette } from "../../theme/palette";
-import { defaultTableAnchors, toPixels } from "./coords";
+import { defaultTableAnchors, getTableAnchorPoints, toPixels } from "./coords";
 import type { GameState, Hand, Seat } from "../../engine/types";
 import { getHandTotals, isBust } from "../../engine/totals";
 import { formatCurrency } from "../../utils/currency";
 import { PlayingCard } from "./PlayingCard";
 import { Button } from "../ui/button";
+import { AnimatedCard } from "../animation/AnimatedCard";
+import { FlipCard } from "../animation/FlipCard";
+import { DEAL_STAGGER } from "../../utils/animConstants";
 
 interface CardLayerProps {
   game: GameState;
@@ -29,6 +32,11 @@ interface SeatClusterLayout {
 
 const MIN_CLUSTER_GAP = 24;
 const SHIFT_LIMIT_BASE = 140;
+const CARD_WIDTH = 92;
+const CARD_HEIGHT = 132;
+const CARD_GAP = 12;
+const DEALER_GAP = 16;
+const CARD_STEP = CARD_WIDTH + CARD_GAP;
 
 const normalizeVector = (vector: { x: number; y: number }): { x: number; y: number } => {
   const magnitude = Math.hypot(vector.x, vector.y);
@@ -44,11 +52,13 @@ const clamp = (value: number, min: number, max: number): number => {
   return value;
 };
 
-const renderCard = (
-  card: { rank: string; suit: string },
-  key: string,
-  faceDown = false
-): React.ReactNode => <PlayingCard key={key} rank={card.rank} suit={card.suit} faceDown={faceDown} />;
+const rotationForIndex = (index: number): number => {
+  const pattern = [-6, -3, 0, 3, 6];
+  if (index < pattern.length) {
+    return pattern[index];
+  }
+  return index % 2 === 0 ? 4 : -4;
+};
 
 const renderHandBadges = (hand: Hand): React.ReactNode => {
   const badges: string[] = [];
@@ -272,6 +282,12 @@ export const CardLayer: React.FC<CardLayerProps> = ({
     [game.seats, dimensions, clusterSizes]
   );
 
+  const anchorPoints = React.useMemo(() => getTableAnchorPoints(dimensions), [dimensions]);
+  const shoeOrigin = React.useMemo(
+    () => ({ x: anchorPoints.shoe.x - CARD_WIDTH / 2, y: anchorPoints.shoe.y - CARD_HEIGHT / 2 }),
+    [anchorPoints]
+  );
+
   const layoutSignature = React.useMemo(
     () => seatLayouts.map((layout) => layout.seat.index).join("-"),
     [seatLayouts]
@@ -319,9 +335,47 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   };
 
   const dealerTotals = getHandTotals(game.dealer.hand);
+  const cardElements: React.ReactNode[] = [];
+  let dealerPlaceholderWidth = CARD_WIDTH;
+  const dealerCardCount = dealerCards.length;
+  if (dealerCardCount > 0) {
+    const dealerWidth = CARD_WIDTH + (dealerCardCount - 1) * (CARD_WIDTH + DEALER_GAP);
+    dealerPlaceholderWidth = dealerWidth;
+    const dealerStartX = dealerPosition.x - dealerWidth / 2;
+    const dealerTop = dealerPosition.y - dealerBoxSize.height / 2 + 8;
+    dealerCards.forEach((card, index) => {
+      const toX = dealerStartX + index * (CARD_WIDTH + DEALER_GAP);
+      const toY = dealerTop;
+      const rotation = rotationForIndex(index);
+      const content =
+        index === 1 ? (
+          <FlipCard
+            isRevealed={revealHole}
+            back={<PlayingCard rank={card.rank} suit={card.suit} faceDown />}
+            front={<PlayingCard rank={card.rank} suit={card.suit} />}
+          />
+        ) : (
+          <PlayingCard rank={card.rank} suit={card.suit} />
+        );
+      cardElements.push(
+        <AnimatedCard
+          key={`dealer-${index}`}
+          id={`dealer-${index}`}
+          from={shoeOrigin}
+          to={{ x: toX, y: toY }}
+          rotation={rotation}
+          delay={index * DEAL_STAGGER}
+          z={index}
+        >
+          {content}
+        </AnimatedCard>
+      );
+    });
+  }
 
   return (
     <div className="pointer-events-none absolute inset-0 z-30 text-[13px]" style={{ color: palette.text }}>
+      <div className="pointer-events-none absolute inset-0">{cardElements}</div>
       <div
         className="flex flex-col items-center gap-3"
         style={{
@@ -332,13 +386,8 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           transform: "translate(-50%, -50%)"
         }}
       >
-        <div className="flex gap-4">
-          {dealerCards.map((card, index) => {
-            if (index === 1 && !revealHole) {
-              return renderCard(card, `dealer-${index}`, true);
-            }
-            return renderCard(card, `dealer-${index}`);
-          })}
+        <div aria-hidden className="flex justify-center">
+          <div style={{ width: dealerPlaceholderWidth, height: CARD_HEIGHT }} />
         </div>
         <div className="rounded-full bg-[#0d3124]/80 px-4 py-1 text-xs uppercase tracking-[0.25em]">
           {revealHole
@@ -353,6 +402,8 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         const { seat, orientation, position } = layout;
         const isActiveSeat = game.activeSeatIndex === seat.index;
         const hands = seat.hands.length > 0 ? seat.hands : [];
+        const clusterTop = position.y - layout.size.height / 2;
+        const cardTop = clusterTop + 12;
         const readyBadge =
           hands.length === 0 && seat.baseBet > 0 ? (
             <span
@@ -364,12 +415,42 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           ) : null;
 
         const handNodes = hands.map((hand, handIndex) => {
-          const cards = hand.cards.map((card, cardIndex) => renderCard(card, `${hand.id}-${cardIndex}`));
           const handTotals = getHandTotals(hand);
+          const cardCount = hand.cards.length;
+          const handOffsetX = handIndex * 18;
+          const baseCenterX = position.x + handOffsetX;
+          const totalStep = CARD_STEP;
+          const startCenterX = baseCenterX - ((cardCount - 1) * totalStep) / 2;
+          const cardRowWidth = CARD_WIDTH + (cardCount - 1) * totalStep;
+
+          hand.cards.forEach((card, cardIndex) => {
+            const centerX = startCenterX + cardIndex * totalStep;
+            const toX = centerX - CARD_WIDTH / 2;
+            const toY = cardTop;
+            const id = `${hand.id}-${cardIndex}`;
+            cardElements.push(
+              <AnimatedCard
+                key={id}
+                id={id}
+                from={shoeOrigin}
+                to={{ x: toX, y: toY }}
+                rotation={rotationForIndex(cardIndex)}
+                delay={cardIndex * DEAL_STAGGER}
+                z={handIndex * 10 + cardIndex}
+              >
+                <PlayingCard rank={card.rank} suit={card.suit} />
+              </AnimatedCard>
+            );
+          });
+
           return (
             <div key={hand.id} className="flex flex-col items-center gap-2">
-              <div className="flex gap-3" style={{ transform: `translateX(${handIndex * 18}px)` }}>
-                {cards}
+              <div
+                aria-hidden
+                className="flex justify-center"
+                style={{ transform: `translateX(${handOffsetX}px)` }}
+              >
+                <div style={{ width: cardRowWidth, height: CARD_HEIGHT }} />
               </div>
               <div
                 className="rounded-full bg-[#0c2e23]/85 px-3 py-1 text-[13px] uppercase tracking-[0.25em]"

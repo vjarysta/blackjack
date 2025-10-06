@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Button } from "../ui/button";
 import { ChipSVG } from "./ChipSVG";
 import type { ChipDenomination } from "../../theme/palette";
@@ -6,6 +7,8 @@ import { palette } from "../../theme/palette";
 import { defaultTableAnchors, toPixels } from "./coords";
 import type { GameState, Seat } from "../../engine/types";
 import { formatCurrency } from "../../utils/currency";
+import { AnimatedChip } from "../animation/AnimatedChip";
+import { ANIM, REDUCED } from "../../utils/animConstants";
 
 interface BetSpotOverlayProps {
   game: GameState;
@@ -79,6 +82,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
         const visibleStart = Math.max(0, chipStack.length - MAX_VISIBLE_CHIPS);
         const visibleChips = chipStack.slice(visibleStart);
         const overflow = chipStack.length - visibleChips.length;
+        const isActive = game.activeSeatIndex === seat.index;
 
         return (
           <div key={seat.index} className="absolute" style={{ left: x, top: y }} data-testid={`seat-${seat.index}`}>
@@ -92,6 +96,25 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                 onContextMenu={(event) => handleContextMenu(event, seat)}
                 disabled={!isBettingPhase}
                 aria-label={`Bet spot for seat ${seat.index + 1}`}
+              />
+              <motion.div
+                aria-hidden
+                animate={{ opacity: isActive ? 1 : 0 }}
+                transition={{
+                  ...ANIM.fade,
+                  duration: REDUCED ? 0 : ANIM.fade.duration
+                }}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: circleSize,
+                  height: circleSize,
+                  borderRadius: "9999px",
+                  boxShadow: "0 0 0 2px rgba(200,162,74,0.6), 0 0 18px rgba(200,162,74,0.35)",
+                  pointerEvents: "none",
+                  zIndex: 20
+                }}
               />
               {showSit && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -121,22 +144,31 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
               <div className="relative flex h-[64px] w-[64px] items-center justify-center">
                 {visibleChips.map((chip, index) => {
                   const stackIndex = visibleStart + index;
+                  const chipId = `${seat.index}-${stackIndex}-${chip}`;
                   return (
-                    <button
-                      key={`${seat.index}-${stackIndex}-${chip}`}
-                      type="button"
-                      data-chip-value={chip}
-                      className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
-                      style={{ left: "50%", top: `calc(50% - ${index * 6}px)` }}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        if (isBettingPhase) {
-                          onRemoveChipValue(seat.index, chip);
-                        }
+                    <AnimatedChip
+                      key={chipId}
+                      id={chipId}
+                      style={{
+                        left: "50%",
+                        top: `calc(50% - ${index * 6}px)`,
+                        transform: "translate(-50%, -50%)"
                       }}
                     >
-                      <ChipSVG value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
-                    </button>
+                      <button
+                        type="button"
+                        data-chip-value={chip}
+                        className="pointer-events-auto"
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          if (isBettingPhase) {
+                            onRemoveChipValue(seat.index, chip);
+                          }
+                        }}
+                      >
+                        <ChipSVG value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
+                      </button>
+                    </AnimatedChip>
                   );
                 })}
                 {overflow > 0 && (

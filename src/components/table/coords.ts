@@ -7,6 +7,8 @@ export interface SeatAnchor {
   y: number;
 }
 
+export type Point = { x: number; y: number };
+
 export interface TableAnchors {
   viewBox: {
     width: number;
@@ -34,6 +36,8 @@ export interface TableAnchors {
   outerTextPath: string;
   innerTextPath: string;
 }
+
+export type TableAnchorPoints = { shoe: Point; dealer: Point; seats: Point[] };
 
 const VIEWBOX_WIDTH = 1500;
 const VIEWBOX_HEIGHT = 800;
@@ -126,4 +130,15 @@ export const toPixels = (
     x: x * scaleX,
     y: y * scaleY
   };
+};
+
+export const getTableAnchorPoints = (dimensions: { width: number; height: number }): TableAnchorPoints => {
+  const shoe = toPixels(defaultTableAnchors.shoeAnchor.x, defaultTableAnchors.shoeAnchor.y, dimensions);
+  const dealer = toPixels(
+    defaultTableAnchors.dealerArea.x + defaultTableAnchors.dealerArea.width / 2,
+    defaultTableAnchors.dealerArea.y + defaultTableAnchors.dealerArea.height / 2,
+    dimensions
+  );
+  const seats = defaultTableAnchors.seats.map((anchor) => toPixels(anchor.x, anchor.y, dimensions));
+  return { shoe, dealer, seats };
 };
