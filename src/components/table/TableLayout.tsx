@@ -1,5 +1,6 @@
 import React from "react";
-import type { GameState } from "../../engine/types";
+import type { GameState, Seat } from "../../engine/types";
+import { bestTotal, isBust } from "../../engine/totals";
 import { TableSurfaceSVG, type SeatVisualState } from "./TableSurfaceSVG";
 import { mapSeatAnchors } from "./coords";
 import { BetSpotOverlay } from "./BetSpotOverlay";
@@ -8,6 +9,9 @@ import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar } from "../hud/RoundActionBar";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
+import { ResultBanner, type ResultKind } from "./ResultBanner";
+
+const MIN_AMOUNT = 0.005;
 
 const BASE_W = 1850;
 const BASE_H = 780;
@@ -48,6 +52,118 @@ const useStageMetrics = (containerRef: React.RefObject<HTMLDivElement>): StageMe
   }, [containerRef]);
 
   return metrics;
+};
+
+type BannerPhase = "enter" | "exit";
+
+type BannerState = {
+  key: number;
+  kind: ResultKind;
+  amount?: number;
+  phase: BannerPhase;
+};
+
+type OutcomeSummary = {
+  net: number;
+  baseNet: number;
+  insuranceNet: number;
+  hasBlackjackWin: boolean;
+};
+
+const roundToCents = (value: number): number => Math.round(value * 100) / 100;
+
+const calculateOutcomeForSeats = (game: GameState, seats: Seat[]): OutcomeSummary | null => {
+  const dealerHand = game.dealer.hand;
+  const dealerBlackjack = dealerHand.isBlackjack;
+  const dealerBust = isBust(dealerHand);
+  const dealerTotal = bestTotal(dealerHand);
+
+  let totalBet = 0;
+  let totalInsurance = 0;
+  let basePayout = 0;
+  let insurancePayout = 0;
+  let hasBlackjackWin = false;
+
+  const relevantSeats = seats.filter((seat) =>
+    seat.hands.some((hand) => (hand.bet ?? 0) > 0 || (hand.insuranceBet ?? 0) > 0)
+  );
+
+  if (relevantSeats.length === 0) {
+    return null;
+  }
+
+  const blackjackMultiplier = game.rules.blackjackPayout === "6:5" ? 1.2 : 1.5;
+
+  for (const seat of relevantSeats) {
+    for (const hand of seat.hands) {
+      const bet = hand.bet ?? 0;
+      const insuranceBet = hand.insuranceBet ?? 0;
+
+      totalBet += bet;
+      totalInsurance += insuranceBet;
+
+      if (dealerBlackjack) {
+        if (insuranceBet > 0) {
+          insurancePayout += insuranceBet * 3;
+        }
+        if (hand.isBlackjack) {
+          basePayout += bet;
+        }
+        continue;
+      }
+
+      if (hand.isSurrendered) {
+        basePayout += bet / 2;
+        continue;
+      }
+
+      if (isBust(hand)) {
+        continue;
+      }
+
+      if (hand.isBlackjack) {
+        basePayout += bet * (1 + blackjackMultiplier);
+        hasBlackjackWin = true;
+        continue;
+      }
+
+      if (dealerBust) {
+        basePayout += bet * 2;
+        continue;
+      }
+
+      const playerTotal = bestTotal(hand);
+      if (playerTotal > dealerTotal) {
+        basePayout += bet * 2;
+      } else if (playerTotal === dealerTotal) {
+        basePayout += bet;
+      }
+    }
+  }
+
+  if (totalBet <= 0 && totalInsurance <= 0) {
+    return null;
+  }
+
+  const baseNet = roundToCents(basePayout - totalBet);
+  const insuranceNet = roundToCents(insurancePayout - totalInsurance);
+  const net = roundToCents(baseNet + insuranceNet);
+
+  return { net, baseNet, insuranceNet, hasBlackjackWin };
+};
+
+const resolveResultKind = (outcome: OutcomeSummary): ResultKind => {
+  const { net, baseNet, insuranceNet, hasBlackjackWin } = outcome;
+  if (net > MIN_AMOUNT) {
+    if (insuranceNet > MIN_AMOUNT && baseNet <= MIN_AMOUNT) {
+      return "insurance";
+    }
+    return hasBlackjackWin ? "blackjack" : "win";
+  }
+  if (net < -MIN_AMOUNT) {
+    return "lose";
+  }
+  return "push";
 };
 
 interface TableLayoutProps {
@@ -100,6 +216,53 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const hudWidth = Math.max(scaledWidth, containerWidth - STAGE_PADDING * 2);
 
   const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
+
+  const [bannerState, setBannerState] = React.useState<BannerState | null>(null);
+  const exitTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const removeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousRoundRef = React.useRef(game.roundCount);
+
+  const clearBannerTimers = React.useCallback(() => {
+    if (exitTimerRef.current) {
+      clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = null;
+    }
+    if (removeTimerRef.current) {
+      clearTimeout(removeTimerRef.current);
+      removeTimerRef.current = null;
+    }
+  }, []);
+
+  const showBanner = React.useCallback(
+    (next: { kind: ResultKind; amount?: number }) => {
+      clearBannerTimers();
+      const key = Date.now();
+      setBannerState({ key, phase: "enter", ...next });
+
+      exitTimerRef.current = window.setTimeout(() => {
+        setBannerState((current) => (current ? { ...current, phase: "exit" } : null));
+        removeTimerRef.current = window.setTimeout(() => {
+          setBannerState(null);
+        }, 320);
+      }, 3000);
+    },
+    [clearBannerTimers]
+  );
+
+  React.useEffect(() => () => clearBannerTimers(), [clearBannerTimers]);
+
+  React.useEffect(() => {
+    const previousRound = previousRoundRef.current;
+    if (game.phase === "settlement" && game.roundCount > previousRound) {
+      const outcome = calculateOutcomeForSeats(game, seatsForMode);
+      if (outcome) {
+        const kind = resolveResultKind(outcome);
+        const amount = Math.abs(outcome.net);
+        showBanner({ kind, amount: amount > MIN_AMOUNT ? amount : undefined });
+      }
+    }
+    previousRoundRef.current = game.roundCount;
+  }, [game, seatsForMode, showBanner]);
 
   const seatStates = React.useMemo<SeatVisualState[]>(
     () =>
@@ -159,6 +322,14 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               onInsurance={onInsurance}
               onDeclineInsurance={onDeclineInsurance}
             />
+            {bannerState ? (
+              <ResultBanner
+                key={bannerState.key}
+                kind={bannerState.kind}
+                amount={bannerState.amount}
+                phase={bannerState.phase}
+              />
+            ) : null}
           </div>
         </div>
       </div>

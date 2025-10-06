@@ -1,6 +1,8 @@
 import React from "react";
 import { chipPalette, type ChipDenomination } from "../../theme/palette";
 
+const DEFAULT_COLORS = { base: "#3a6b57", ring: "#325c4b", core: "#427c64", notch: "#2c5143" };
+
 interface ChipSVGProps {
   value: ChipDenomination;
   size?: number;
@@ -10,7 +12,12 @@ interface ChipSVGProps {
 }
 
 export const ChipSVG: React.FC<ChipSVGProps> = ({ value, size = 56, shadow = false, className, style }) => {
-  const colors = chipPalette[value];
+  const colors = chipPalette[value] ?? DEFAULT_COLORS;
+  const gradientId = React.useId();
+  const notchCount = 6;
+
+  const textFill = value >= 100 ? "rgba(245,245,245,0.92)" : "rgba(0,0,0,0.82)";
+
   return (
     <svg
       viewBox="0 0 100 100"
@@ -18,27 +25,40 @@ export const ChipSVG: React.FC<ChipSVGProps> = ({ value, size = 56, shadow = fal
       height={size}
       className={className}
       style={{
-        filter: shadow ? "drop-shadow(0 6px 12px rgba(0,0,0,0.35))" : undefined,
+        filter: shadow ? "drop-shadow(0 6px 18px rgba(0,0,0,0.4))" : undefined,
         ...style
       }}
+      aria-hidden="true"
+      focusable="false"
     >
       <defs>
-        <linearGradient id={`chip-base-${value}`} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={colors.base} />
-          <stop offset="100%" stopColor={colors.accent} />
-        </linearGradient>
+        <radialGradient id={`${gradientId}-sheen`} cx="50%" cy="45%" r="70%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.25" />
+        </radialGradient>
       </defs>
-      <circle cx="50" cy="50" r="48" fill={`url(#chip-base-${value})`} stroke={colors.accent} strokeWidth="2" />
-      <circle cx="50" cy="50" r="34" fill={colors.base} stroke={colors.accent} strokeWidth="3" />
-      {Array.from({ length: 8 }).map((_, index) => {
-        const angle = (index * Math.PI) / 4;
-        const x1 = 50 + Math.cos(angle) * 40;
-        const y1 = 50 + Math.sin(angle) * 40;
-        const x2 = 50 + Math.cos(angle) * 48;
-        const y2 = 50 + Math.sin(angle) * 48;
-        return <line key={index} x1={x1} y1={y1} x2={x2} y2={y2} stroke={colors.accent} strokeWidth={4} strokeLinecap="round" />;
-      })}
-      <text x="50" y="58" fill={colors.text} fontSize="28" fontWeight="700" textAnchor="middle">
+      <circle cx="50" cy="50" r="48" fill={colors.base} />
+      <circle cx="50" cy="50" r="48" fill={`url(#${gradientId}-sheen)`} />
+      <circle cx="50" cy="50" r="37" fill={colors.ring} />
+      <circle cx="50" cy="50" r="31" fill={colors.core} />
+      <g fill={colors.notch} opacity="0.9">
+        {Array.from({ length: notchCount }).map((_, index) => {
+          const angle = (index * 360) / notchCount;
+          const radians = (angle * Math.PI) / 180;
+          const x = 50 + Math.cos(radians) * 43;
+          const y = 50 + Math.sin(radians) * 43;
+          return <circle key={angle} cx={x} cy={y} r="4" />;
+        })}
+      </g>
+      <text
+        x="50"
+        y="58"
+        textAnchor="middle"
+        fontSize="26"
+        fontWeight="700"
+        fill={textFill}
+        style={{ fontVariantNumeric: "tabular-nums" }}
+      >
         {value}
       </text>
     </svg>

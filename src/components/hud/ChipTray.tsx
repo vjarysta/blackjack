@@ -1,7 +1,7 @@
 import React from "react";
 import type { ChipDenomination } from "../../theme/palette";
 import { palette } from "../../theme/palette";
-import { ChipSVG } from "../table/ChipSVG";
+import { Chip } from "./Chip";
 
 const CHIP_VALUES: ChipDenomination[] = [1, 5, 25, 100, 500];
 
@@ -22,26 +22,25 @@ export const ChipTray: React.FC<ChipTrayProps> = ({ activeChip, onSelect, disabl
         {CHIP_VALUES.map((value) => {
           const isActive = activeChip === value;
           return (
-            <button
-              key={value}
-              type="button"
-              data-testid={`chip-${value}`}
-              className="relative rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8a24a]"
-              disabled={disabled}
-              aria-pressed={isActive}
-              aria-label={`${value} chip`}
-              onClick={() => onSelect(value)}
-            >
-              <ChipSVG value={value} size={isActive ? 56 : 52} shadow={isActive} />
+            <div key={value} className="relative flex flex-col items-center">
+              <Chip
+                value={value}
+                size={isActive ? 58 : 54}
+                selected={isActive}
+                disabled={disabled}
+                data-testid={`chip-${value}`}
+                aria-label={`${value} chip`}
+                onClick={() => onSelect(value)}
+              />
               {isActive && (
                 <span
-                  className="absolute inset-x-0 -bottom-4 text-center text-[9px] font-semibold uppercase tracking-[0.4em]"
+                  className="mt-1 text-center text-[9px] font-semibold uppercase tracking-[0.4em]"
                   style={{ color: palette.gold }}
                 >
                   Active
                 </span>
               )}
-            </button>
+            </div>
           );
         })}
       </div>
