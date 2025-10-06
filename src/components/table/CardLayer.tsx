@@ -73,7 +73,10 @@ const renderHandBadges = (hand: Hand): React.ReactNode => {
     return null;
   }
   return (
-    <div className="flex flex-wrap justify-center gap-2 text-[12px] uppercase tracking-[0.25em]" style={{ color: palette.subtleText }}>
+    <div
+      className="player-hand__badges flex flex-wrap justify-center gap-2 text-[12px] uppercase tracking-[0.25em]"
+      style={{ color: palette.subtleText }}
+    >
       {badges.map((badge) => (
         <span key={badge} className="rounded-full bg-[#123428]/75 px-2 py-1 font-semibold">
           {badge}
@@ -380,7 +383,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
     <div className="pointer-events-none absolute inset-0 z-30 text-[13px]" style={{ color: palette.text }}>
       <div className="pointer-events-none absolute inset-0">{cardElements}</div>
       <div
-        className="flex flex-col items-center gap-3"
+        className="dealer-area"
         style={{
           position: "absolute",
           left: dealerPosition.x,
@@ -389,10 +392,10 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           transform: "translate(-50%, -50%)"
         }}
       >
-        <div aria-hidden className="flex justify-center">
-          <div style={{ width: dealerPlaceholderWidth, height: CARD_HEIGHT }} />
+        <div aria-hidden className="dealer-area__cards" style={{ width: dealerPlaceholderWidth }}>
+          <div className="dealer-area__placeholder" />
         </div>
-        <div className="rounded-full bg-[#0d3124]/80 px-4 py-1 text-xs uppercase tracking-[0.25em]">
+        <div className="dealer-area__label rounded-full bg-[#0d3124]/80 px-4 py-1 text-xs uppercase tracking-[0.25em]">
           {revealHole
             ? dealerTotals.soft && dealerTotals.soft !== dealerTotals.hard
               ? `Dealer ${dealerTotals.hard} / ${dealerTotals.soft}`
@@ -447,33 +450,35 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           });
 
           return (
-            <div key={hand.id} className="flex flex-col items-center gap-2">
+            <div key={hand.id} className="player-hand pointer-events-none">
               <div
                 aria-hidden
-                className="flex justify-center"
+                className="player-hand__cards"
                 style={{ transform: `translateX(${handOffsetX}px)` }}
               >
-                <div style={{ width: cardRowWidth, height: CARD_HEIGHT }} />
+                <div className="player-hand__placeholder" style={{ width: cardRowWidth }} />
               </div>
-              <div
-                className="rounded-full bg-[#0c2e23]/85 px-3 py-1 text-[13px] uppercase tracking-[0.25em]"
-                style={{ color: palette.text }}
-              >
-                {handTotals.soft && handTotals.soft !== handTotals.hard
-                  ? `Total ${handTotals.hard} / ${handTotals.soft}`
-                  : `Total ${handTotals.hard}`}
-              </div>
-              <div className="text-[13px] uppercase tracking-[0.25em]" style={{ color: palette.subtleText }}>
-                Bet {formatCurrency(hand.bet)}
-              </div>
-              {hand.insuranceBet !== undefined && (
-                <div className="text-[12px] uppercase tracking-[0.25em]" style={{ color: palette.subtleText }}>
-                  {hand.insuranceBet > 0
-                    ? `Insurance ${formatCurrency(hand.insuranceBet)}`
-                    : "Insurance declined"}
+              <div className="player-hand__meta">
+                <div
+                  className="rounded-full bg-[#0c2e23]/85 px-3 py-1 text-[13px] tracking-[0.25em]"
+                  style={{ color: palette.text }}
+                >
+                  {handTotals.soft && handTotals.soft !== handTotals.hard
+                    ? `Total ${handTotals.hard} / ${handTotals.soft}`
+                    : `Total ${handTotals.hard}`}
                 </div>
-              )}
-              {renderHandBadges(hand)}
+                <div className="text-[13px] tracking-[0.25em]" style={{ color: palette.subtleText }}>
+                  Bet {formatCurrency(hand.bet)}
+                </div>
+                {hand.insuranceBet !== undefined && (
+                  <div className="text-[12px] tracking-[0.25em]" style={{ color: palette.subtleText }}>
+                    {hand.insuranceBet > 0
+                      ? `Insurance ${formatCurrency(hand.insuranceBet)}`
+                      : "Insurance declined"}
+                  </div>
+                )}
+                {renderHandBadges(hand)}
+              </div>
             </div>
           );
         });
