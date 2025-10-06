@@ -1,8 +1,10 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Button } from "../ui/button";
 import type { GameState, Hand } from "../../engine/types";
 import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { formatCurrency } from "../../utils/currency";
+import { ANIM, REDUCED } from "../../utils/animConstants";
 
 interface RoundActionBarProps {
   game: GameState;
@@ -68,10 +70,17 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
     };
   }, [activeHand, game.bankroll, game.phase, game.rules, parentSeat]);
 
+  const showActions = game.phase !== "betting" || hasReadySeat(game);
+  const fadeDuration = REDUCED ? 0 : ANIM.fade.duration;
+
   return (
-    <div
+    <motion.div
       data-testid="round-action-bar"
       className="flex w-full items-center gap-3 overflow-x-auto rounded-2xl border border-[#c8a24a]/40 bg-[#0d2c22]/90 px-4 py-3 shadow-[0_18px_45px_rgba(0,0,0,0.45)] backdrop-blur"
+      initial={false}
+      animate={{ opacity: showActions ? 1 : 0, y: showActions ? 0 : 10 }}
+      transition={{ ...ANIM.fade, duration: fadeDuration }}
+      style={{ pointerEvents: showActions ? "auto" : "none" }}
     >
       <div className="flex items-center gap-2">
         <Button size="sm" onClick={onDeal} disabled={game.phase !== "betting" || !hasReadySeat(game)}>
@@ -110,6 +119,6 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
           </Button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };
