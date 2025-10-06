@@ -2,6 +2,7 @@ import React from "react";
 import { Icon } from "@iconify/react";
 import { palette } from "../../theme/palette";
 import { defaultTableAnchors, type SeatAnchor, type TableAnchors } from "./coords";
+import { isSingleSeatMode, visibleSeatIndexes } from "../../ui/config";
 
 export interface SeatVisualState {
   index: number;
@@ -97,42 +98,44 @@ export const TableSurfaceSVG: React.FC<TableSurfaceSVGProps> = ({ className, sea
         <textPath startOffset="50%" xlinkHref={`#${innerTextId}`}>INSURANCE PAYS 2 TO 1</textPath>
       </text>
 
-      {defaultTableAnchors.seats.map((anchor: SeatAnchor) => {
-        const seat = seatByIndex.get(anchor.index);
-        return (
-          <g key={anchor.index}>
-            <circle
-              cx={anchor.x}
-              cy={anchor.y}
-              r={defaultTableAnchors.seatRadius}
-              fill="rgba(15, 46, 36, 0.75)"
-              stroke={seatCircleStroke(seat)}
-              strokeWidth={seat?.isActive ? 4 : 2.5}
-            />
-            <circle
-              cx={anchor.x}
-              cy={anchor.y}
-              r={defaultTableAnchors.seatRadius - 10}
-              fill="rgba(11, 37, 32, 0.8)"
-              stroke="rgba(234, 233, 225, 0.08)"
-              strokeWidth={1.5}
-            />
-            {seat?.label ? (
-              <text
-                x={anchor.x}
-                y={anchor.y - defaultTableAnchors.seatLabelOffset}
-                fill={palette.line}
-                fontSize={18}
-                fontWeight={600}
-                textAnchor="middle"
-                letterSpacing={3}
-              >
-                {seat.label.toUpperCase()}
-              </text>
-            ) : null}
-          </g>
-        );
-      })}
+      {defaultTableAnchors.seats
+        .filter((anchor) => !isSingleSeatMode || visibleSeatIndexes.includes(anchor.index))
+        .map((anchor: SeatAnchor) => {
+          const seat = seatByIndex.get(anchor.index);
+          return (
+            <g key={anchor.index}>
+              <circle
+                cx={anchor.x}
+                cy={anchor.y}
+                r={defaultTableAnchors.seatRadius}
+                fill="rgba(15, 46, 36, 0.75)"
+                stroke={seatCircleStroke(seat)}
+                strokeWidth={seat?.isActive ? 4 : 2.5}
+              />
+              <circle
+                cx={anchor.x}
+                cy={anchor.y}
+                r={defaultTableAnchors.seatRadius - 10}
+                fill="rgba(11, 37, 32, 0.8)"
+                stroke="rgba(234, 233, 225, 0.08)"
+                strokeWidth={1.5}
+              />
+              {seat?.label ? (
+                <text
+                  x={anchor.x}
+                  y={anchor.y - defaultTableAnchors.seatLabelOffset}
+                  fill={palette.line}
+                  fontSize={18}
+                  fontWeight={600}
+                  textAnchor="middle"
+                  letterSpacing={3}
+                >
+                  {seat.label.toUpperCase()}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
 
       <g transform={`translate(${defaultTableAnchors.shoeAnchor.x - 30}, ${defaultTableAnchors.shoeAnchor.y - 30})`}>
         <Icon icon="game-icons:card-pick" width={60} height={60} color={palette.line} />

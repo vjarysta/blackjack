@@ -5,6 +5,7 @@ import type { GameState, Hand } from "../../engine/types";
 import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { formatCurrency } from "../../utils/currency";
 import { ANIM, REDUCED } from "../../utils/animConstants";
+import { filterSeatsForMode } from "../../ui/config";
 
 interface RoundActionBarProps {
   game: GameState;
@@ -20,7 +21,8 @@ interface RoundActionBarProps {
 }
 
 const hasReadySeat = (game: GameState): boolean => {
-  const readySeats = game.seats.filter((seat) => seat.occupied && seat.baseBet >= game.rules.minBet);
+  const seats = filterSeatsForMode(game.seats);
+  const readySeats = seats.filter((seat) => seat.occupied && seat.baseBet >= game.rules.minBet);
   if (readySeats.length === 0) {
     return false;
   }
@@ -32,7 +34,7 @@ const findActiveHand = (game: GameState): Hand | null => {
   if (!game.activeHandId) {
     return null;
   }
-  for (const seat of game.seats) {
+  for (const seat of filterSeatsForMode(game.seats)) {
     const hand = seat.hands.find((candidate) => candidate.id === game.activeHandId);
     if (hand) {
       return hand;

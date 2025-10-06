@@ -7,6 +7,7 @@ import { CardLayer } from "./CardLayer";
 import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar } from "../hud/RoundActionBar";
+import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
 
 const BASE_W = 1850;
 const BASE_H = 780;
@@ -98,16 +99,23 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const scaledHeight = BASE_H * scale;
   const hudWidth = Math.max(scaledWidth, containerWidth - STAGE_PADDING * 2);
 
+  const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
+
   const seatStates = React.useMemo<SeatVisualState[]>(
     () =>
-      mapSeatAnchors(game.seats, (seat, anchor) => ({
+      mapSeatAnchors(seatsForMode, (seat, anchor) => ({
         index: seat.index,
         occupied: seat.occupied,
         hasBet: seat.baseBet > 0,
         isActive: game.activeSeatIndex === seat.index,
-        label: seat.occupied || seat.baseBet > 0 ? "" : anchor.label
+        label:
+          seat.occupied || seat.baseBet > 0
+            ? ""
+            : isSingleSeatMode
+              ? "You"
+              : anchor.label
       })),
-    [game]
+    [game.activeSeatIndex, seatsForMode]
   );
 
   return (
@@ -144,13 +152,13 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               onAddChip={onAddChip}
               onRemoveChipValue={onRemoveChipValue}
               onRemoveTopChip={onRemoveTopChip}
-        />
-        <CardLayer
-          game={game}
-          dimensions={{ width: BASE_W, height: BASE_H }}
-          onInsurance={onInsurance}
-          onDeclineInsurance={onDeclineInsurance}
-        />
+            />
+            <CardLayer
+              game={game}
+              dimensions={{ width: BASE_W, height: BASE_H }}
+              onInsurance={onInsurance}
+              onDeclineInsurance={onDeclineInsurance}
+            />
           </div>
         </div>
       </div>
