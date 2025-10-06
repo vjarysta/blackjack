@@ -1,4 +1,5 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Button } from "../ui/button";
 import { ChipSVG } from "./ChipSVG";
 import type { ChipDenomination } from "../../theme/palette";
@@ -6,6 +7,8 @@ import { palette } from "../../theme/palette";
 import { defaultTableAnchors, toPixels } from "./coords";
 import type { GameState, Seat } from "../../engine/types";
 import { formatCurrency } from "../../utils/currency";
+import { AnimatedChip } from "./AnimatedChip";
+import { ANIM, REDUCED } from "../../utils/animConstants";
 
 interface BetSpotOverlayProps {
   game: GameState;
@@ -28,7 +31,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
   onLeave,
   onAddChip,
   onRemoveChipValue,
-  onRemoveTopChip
+  onRemoveTopChip,
 }) => {
   const isBettingPhase = game.phase === "betting";
   const seats = game.seats;
@@ -41,7 +44,10 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
     if (!seat.occupied) {
       onSit(seat.index);
     }
-    const remainingBankroll = Math.max(0, Math.floor(game.bankroll - (totalBets - seat.baseBet)));
+    const remainingBankroll = Math.max(
+      0,
+      Math.floor(game.bankroll - (totalBets - seat.baseBet)),
+    );
     const nextBet = seat.baseBet + activeChip;
     if (remainingBankroll <= 0 || nextBet > game.rules.maxBet) {
       return;
@@ -79,10 +85,39 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
         const visibleStart = Math.max(0, chipStack.length - MAX_VISIBLE_CHIPS);
         const visibleChips = chipStack.slice(visibleStart);
         const overflow = chipStack.length - visibleChips.length;
+        const isActiveSeat = game.activeSeatIndex === seat.index;
 
         return (
-          <div key={seat.index} className="absolute" style={{ left: x, top: y }} data-testid={`seat-${seat.index}`}>
-            <div className="relative -translate-x-1/2 -translate-y-1/2" style={{ width: circleSize, height: circleSize }}>
+          <div
+            key={seat.index}
+            className="absolute"
+            style={{ left: x, top: y }}
+            data-testid={`seat-${seat.index}`}
+          >
+            <div
+              className="relative -translate-x-1/2 -translate-y-1/2"
+              style={{ width: circleSize, height: circleSize }}
+            >
+              <motion.div
+                aria-hidden
+                animate={{ opacity: isActiveSeat ? 1 : 0 }}
+                transition={{
+                  ...ANIM.fade,
+                  duration: REDUCED ? 0 : ANIM.fade.duration,
+                }}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: 0,
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "9999px",
+                  boxShadow:
+                    "0 0 0 2px rgba(200,162,74,0.6), 0 0 18px rgba(200,162,74,0.35)",
+                  pointerEvents: "none",
+                  zIndex: 20,
+                }}
+              />
               <button
                 type="button"
                 data-testid={`bet-spot-${seat.index}`}
@@ -121,22 +156,33 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
               <div className="relative flex h-[64px] w-[64px] items-center justify-center">
                 {visibleChips.map((chip, index) => {
                   const stackIndex = visibleStart + index;
+                  const chipId = `${seat.index}-${stackIndex}-${chip}`;
                   return (
-                    <button
-                      key={`${seat.index}-${stackIndex}-${chip}`}
-                      type="button"
-                      data-chip-value={chip}
-                      className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2"
+                    <AnimatedChip
+                      key={chipId}
+                      id={chipId}
                       style={{ left: "50%", top: `calc(50% - ${index * 6}px)` }}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        if (isBettingPhase) {
-                          onRemoveChipValue(seat.index, chip);
-                        }
-                      }}
+                      className="pointer-events-none -translate-x-1/2 -translate-y-1/2"
+                      z={stackIndex}
                     >
-                      <ChipSVG value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
-                    </button>
+                      <button
+                        type="button"
+                        data-chip-value={chip}
+                        className="pointer-events-auto"
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          if (isBettingPhase) {
+                            onRemoveChipValue(seat.index, chip);
+                          }
+                        }}
+                      >
+                        <ChipSVG
+                          value={chip}
+                          size={40}
+                          shadow={stackIndex === chipStack.length - 1}
+                        />
+                      </button>
+                    </AnimatedChip>
                   );
                 })}
                 {overflow > 0 && (
@@ -152,7 +198,10 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                 <span
                   data-testid={`seat-${seat.index}-bet`}
                   className="rounded-full px-3 py-1 text-xs font-semibold tracking-[0.3em]"
-                  style={{ backgroundColor: "rgba(12, 46, 36, 0.8)", color: palette.line }}
+                  style={{
+                    backgroundColor: "rgba(12, 46, 36, 0.8)",
+                    color: palette.line,
+                  }}
                 >
                   {formatCurrency(seat.baseBet)}
                 </span>
