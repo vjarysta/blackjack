@@ -171,8 +171,11 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-50 w-full px-4 pb-4">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 rounded-3xl border border-[#c8a24a]/40 bg-[#0b2d22]/85 px-6 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur">
+      <div className="pointer-events-none sticky bottom-0 z-50 w-full px-4 pb-4">
+        <div
+          className="pointer-events-auto mx-auto flex w-full flex-col gap-4 rounded-3xl border border-[#c8a24a]/40 bg-[#0b2d22]/85 px-6 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.5)] backdrop-blur"
+          style={{ width: stageWidth, maxWidth: "100%" }}
+        >
           <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <ChipTray activeChip={activeChip} onSelect={onSelectChip} disabled={game.phase !== "betting"} />
             <RoundActionBar
