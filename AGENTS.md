@@ -6,6 +6,8 @@ Client code lives in `src`, with stateful game rules under `src/engine` and UI w
 ## Build, Test, and Development Commands
 Use `npm install` once to hydrate dependencies. `npm run dev` launches Vite with hot reload; prefer it while iterating on UI. Ship-ready bundles come from `npm run build`, which type-checks via `tsc -b` before bundling. `npm run preview` serves the build artifact for smoke-testing. `npm run lint` runs ESLint across `.ts/.tsx`, and `npm test` executes the Vitest suite headlessly.
 
+Run `npm run verify` before opening a PR or handing work back to Codex. It chains linting, unit tests, the production build, and the Playwright e2e suite exactly like CI. If the Playwright browsers are missing locally, bootstrap them first with `npx playwright install --with-deps`.
+
 ## Coding Style & Naming Conventions
 Write modern TypeScript with React function components. Follow the existing two-space indentation and favor named exports (`export const Table`). Derive Tailwind class strings through `src/utils/cn.ts` instead of ad hoc concatenation. ESLint (see `.eslintrc.cjs`) and Prettier alignment catch most formatting issues—run `npm run lint` or `npx prettier --check "src/**/*.ts*"` before pushing. Name state stores with the `useXStore` pattern and component files in PascalCase.
 

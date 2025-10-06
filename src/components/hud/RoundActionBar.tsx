@@ -54,11 +54,12 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
   const activeHand = findActiveHand(game);
   const parentSeat = activeHand ? game.seats[activeHand.parentSeatIndex] : null;
 
-  const legal = React.useMemo(() => {
+  const actionContext = React.useMemo(() => {
     if (!activeHand || !parentSeat || game.phase !== "playerActions") {
       return null;
     }
     return {
+      hand: activeHand,
       hit: canHit(activeHand),
       stand: !activeHand.isResolved,
       double: canDouble(activeHand, game.rules) && game.bankroll >= activeHand.bet,
@@ -87,24 +88,24 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
         </Button>
       </div>
 
-      {legal && (
+      {actionContext && (
         <div className="ml-auto flex items-center gap-2">
           <span className="hidden text-[10px] uppercase tracking-[0.4em] text-emerald-200 md:inline">
-            Active Bet {formatCurrency(activeHand.bet)}
+            Active Bet {formatCurrency(actionContext.hand.bet)}
           </span>
-          <Button size="sm" onClick={onHit} disabled={!legal.hit}>
+          <Button size="sm" onClick={onHit} disabled={!actionContext.hit}>
             Hit
           </Button>
-          <Button size="sm" variant="outline" onClick={onStand} disabled={!legal.stand}>
+          <Button size="sm" variant="outline" onClick={onStand} disabled={!actionContext.stand}>
             Stand
           </Button>
-          <Button size="sm" variant="outline" onClick={onDouble} disabled={!legal.double}>
+          <Button size="sm" variant="outline" onClick={onDouble} disabled={!actionContext.double}>
             Double
           </Button>
-          <Button size="sm" variant="outline" onClick={onSplit} disabled={!legal.split}>
+          <Button size="sm" variant="outline" onClick={onSplit} disabled={!actionContext.split}>
             Split
           </Button>
-          <Button size="sm" variant="outline" onClick={onSurrender} disabled={!legal.surrender}>
+          <Button size="sm" variant="outline" onClick={onSurrender} disabled={!actionContext.surrender}>
             Surrender
           </Button>
         </div>
