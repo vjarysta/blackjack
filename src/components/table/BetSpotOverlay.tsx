@@ -4,7 +4,7 @@ import { ChipSVG } from "./ChipSVG";
 import type { ChipDenomination } from "../../theme/palette";
 import { palette } from "../../theme/palette";
 import { defaultTableAnchors, toPixels } from "./coords";
-import type { GameState, Hand, Seat } from "../../engine/types";
+import type { GameState, Seat } from "../../engine/types";
 import { formatCurrency } from "../../utils/currency";
 
 interface BetSpotOverlayProps {
@@ -16,45 +16,9 @@ interface BetSpotOverlayProps {
   onAddChip: (seatIndex: number, denom: number) => void;
   onRemoveChipValue: (seatIndex: number, denom: number) => void;
   onRemoveTopChip: (seatIndex: number) => void;
-  onInsurance: (seatIndex: number, handId: string, amount: number) => void;
-  onDeclineInsurance: (seatIndex: number, handId: string) => void;
 }
 
 const MAX_VISIBLE_CHIPS = 6;
-
-const seatInsurancePrompt = (
-  seat: Seat,
-  hand: Hand,
-  game: GameState,
-  onInsurance: BetSpotOverlayProps["onInsurance"],
-  onDeclineInsurance: BetSpotOverlayProps["onDeclineInsurance"]
-): React.ReactNode => {
-  const alreadyResolved = hand.insuranceBet !== undefined;
-  if (!seat.occupied || game.phase !== "insurance" || alreadyResolved || hand.isResolved) {
-    return null;
-  }
-  const maxInsurance = Math.floor(hand.bet / 2);
-  const cappedAmount = Math.min(maxInsurance, Math.floor(game.bankroll));
-  const disabled = cappedAmount <= 0;
-  return (
-    <div
-      key={hand.id}
-      className="pointer-events-auto absolute left-1/2 top-full z-30 mt-3 -translate-x-1/2 rounded-lg border border-[#c8a24a]/60 bg-[#0d3024]/95 px-3 py-2 text-xs shadow-lg"
-    >
-      <p className="font-semibold tracking-wide" style={{ color: palette.gold }}>
-        Insurance?
-      </p>
-      <div className="mt-2 flex gap-2">
-        <Button size="sm" onClick={() => onInsurance(seat.index, hand.id, cappedAmount)} disabled={disabled}>
-          Take {formatCurrency(cappedAmount)}
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => onDeclineInsurance(seat.index, hand.id)}>
-          Skip
-        </Button>
-      </div>
-    </div>
-  );
-};
 
 export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
   game,
@@ -64,9 +28,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
   onLeave,
   onAddChip,
   onRemoveChipValue,
-  onRemoveTopChip,
-  onInsurance,
-  onDeclineInsurance
+  onRemoveTopChip
 }) => {
   const isBettingPhase = game.phase === "betting";
   const seats = game.seats;
@@ -113,22 +75,48 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
         const circleSize = defaultTableAnchors.seatRadius * 2 * scaleX;
         const chipStack = Array.isArray(seat.chips) ? seat.chips : [];
         const showSit = isBettingPhase && !seat.occupied;
+        const showLeave = seat.occupied && isBettingPhase;
         const visibleStart = Math.max(0, chipStack.length - MAX_VISIBLE_CHIPS);
         const visibleChips = chipStack.slice(visibleStart);
         const overflow = chipStack.length - visibleChips.length;
 
         return (
           <div key={seat.index} className="absolute" style={{ left: x, top: y }} data-testid={`seat-${seat.index}`}>
-            <button
-              type="button"
-              data-testid={`bet-spot-${seat.index}`}
-              className="pointer-events-auto -translate-x-1/2 -translate-y-1/2 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8a24a]"
-              style={{ width: circleSize, height: circleSize, backgroundColor: "transparent" }}
-              onClick={() => handleAddChip(seat)}
-              onContextMenu={(event) => handleContextMenu(event, seat)}
-              disabled={!isBettingPhase}
-              aria-label={`Bet spot for seat ${seat.index + 1}`}
-            />
+            <div className="relative -translate-x-1/2 -translate-y-1/2" style={{ width: circleSize, height: circleSize }}>
+              <button
+                type="button"
+                data-testid={`bet-spot-${seat.index}`}
+                className="pointer-events-auto absolute inset-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c8a24a]"
+                style={{ backgroundColor: "transparent" }}
+                onClick={() => handleAddChip(seat)}
+                onContextMenu={(event) => handleContextMenu(event, seat)}
+                disabled={!isBettingPhase}
+                aria-label={`Bet spot for seat ${seat.index + 1}`}
+              />
+              {showSit && (
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                  <Button
+                    size="sm"
+                    className="pointer-events-auto h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
+                    onClick={() => onSit(seat.index)}
+                  >
+                    Sit
+                  </Button>
+                </div>
+              )}
+              {showLeave && (
+                <div className="pointer-events-none absolute bottom-1 left-1/2 flex -translate-x-1/2 justify-center">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="pointer-events-auto h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
+                    onClick={() => onLeave(seat.index)}
+                  >
+                    Leave
+                  </Button>
+                </div>
+              )}
+            </div>
             <div className="pointer-events-none flex -translate-x-1/2 -translate-y-[110%] flex-col items-center gap-2">
               <div className="relative flex h-[64px] w-[64px] items-center justify-center">
                 {visibleChips.map((chip, index) => {
@@ -170,21 +158,6 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                 </span>
               )}
             </div>
-            {showSit && (
-              <div className="pointer-events-auto absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2">
-                <Button size="sm" onClick={() => onSit(seat.index)}>
-                  Sit
-                </Button>
-              </div>
-            )}
-            {seat.occupied && isBettingPhase && (
-              <div className="pointer-events-auto absolute left-1/2 top-[85%] -translate-x-1/2">
-                <Button size="sm" variant="ghost" onClick={() => onLeave(seat.index)}>
-                  Leave
-                </Button>
-              </div>
-            )}
-            {seat.hands.map((hand) => seatInsurancePrompt(seat, hand, game, onInsurance, onDeclineInsurance))}
           </div>
         );
       })}

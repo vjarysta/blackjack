@@ -8,8 +8,8 @@ import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar } from "../hud/RoundActionBar";
 
-const BASE_W = 1320;
-const BASE_H = 760;
+const BASE_W = 1850;
+const BASE_H = 780;
 const HUD_HEIGHT = 120;
 const STAGE_PADDING = 16;
 
@@ -105,7 +105,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
         occupied: seat.occupied,
         hasBet: seat.baseBet > 0,
         isActive: game.activeSeatIndex === seat.index,
-        label: anchor.label
+        label: seat.occupied || seat.baseBet > 0 ? "" : anchor.label
       })),
     [game]
   );
@@ -144,10 +144,13 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               onAddChip={onAddChip}
               onRemoveChipValue={onRemoveChipValue}
               onRemoveTopChip={onRemoveTopChip}
-              onInsurance={onInsurance}
-              onDeclineInsurance={onDeclineInsurance}
-            />
-            <CardLayer game={game} dimensions={{ width: BASE_W, height: BASE_H }} />
+        />
+        <CardLayer
+          game={game}
+          dimensions={{ width: BASE_W, height: BASE_H }}
+          onInsurance={onInsurance}
+          onDeclineInsurance={onDeclineInsurance}
+        />
           </div>
         </div>
       </div>

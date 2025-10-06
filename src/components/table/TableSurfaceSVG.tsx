@@ -117,17 +117,19 @@ export const TableSurfaceSVG: React.FC<TableSurfaceSVGProps> = ({ className, sea
               stroke="rgba(234, 233, 225, 0.08)"
               strokeWidth={1.5}
             />
-            <text
-              x={anchor.x}
-              y={anchor.y - defaultTableAnchors.seatLabelOffset}
-              fill={palette.line}
-              fontSize={18}
-              fontWeight={600}
-              textAnchor="middle"
-              letterSpacing={3}
-            >
-              {anchor.label.toUpperCase()}
-            </text>
+            {seat?.label ? (
+              <text
+                x={anchor.x}
+                y={anchor.y - defaultTableAnchors.seatLabelOffset}
+                fill={palette.line}
+                fontSize={18}
+                fontWeight={600}
+                textAnchor="middle"
+                letterSpacing={3}
+              >
+                {seat.label.toUpperCase()}
+              </text>
+            ) : null}
           </g>
         );
       })}
