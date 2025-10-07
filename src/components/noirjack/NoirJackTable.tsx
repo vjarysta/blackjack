@@ -130,6 +130,28 @@ const usePrefersReducedMotion = (): boolean => {
   return prefers;
 };
 
+const useMediaQuery = (query: string): boolean => {
+  const [matches, setMatches] = React.useState<boolean>(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return false;
+    }
+    return window.matchMedia(query).matches;
+  });
+
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) {
+      return;
+    }
+    const media = window.matchMedia(query);
+    const handler = () => setMatches(media.matches);
+    handler();
+    media.addEventListener("change", handler);
+    return () => media.removeEventListener("change", handler);
+  }, [query]);
+
+  return matches;
+};
+
 const useHaptics = (disabled: boolean): (() => void) => {
   return React.useCallback(() => {
     if (disabled || typeof window === "undefined" || typeof navigator === "undefined") {
@@ -202,6 +224,9 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   );
   const prefersReducedMotion = usePrefersReducedMotion();
   const vibrate = useHaptics(prefersReducedMotion);
+  const isMobile = useMediaQuery("(max-width: 480px)");
+  const chipSheetId = React.useId();
+  const [chipsOpen, setChipsOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (messageTimer.current) {
@@ -234,6 +259,26 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       }
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!isMobile) {
+      setChipsOpen(false);
+    }
+  }, [isMobile]);
+
+  React.useEffect(() => {
+    if (!chipsOpen || !isMobile) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setChipsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [chipsOpen, isMobile]);
 
   const seat = game.seats[PRIMARY_SEAT_INDEX] ?? null;
   const activeHand = findActiveHand(game);
@@ -408,6 +453,48 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     setChipMotion({ value: activeChip, type: "remove", stamp: Date.now() });
   }, [actions, activeChip, game.phase, seat, vibrate]);
 
+  const closeChipSheet = React.useCallback(() => setChipsOpen(false), []);
+
+  const handleSelectChip = React.useCallback(
+    (value: ChipDenomination) => {
+      setActiveChip(value);
+      handleAddChip(value);
+      if (isMobile) {
+        setChipsOpen(false);
+      }
+    },
+    [handleAddChip, isMobile]
+  );
+
+  const handleChipRemoval = React.useCallback(
+    (value: ChipDenomination) => {
+      setActiveChip(value);
+      handleRemoveChipValue(value);
+      if (isMobile) {
+        setChipsOpen(false);
+      }
+    },
+    [handleRemoveChipValue, isMobile]
+  );
+
+  const handleAddActiveChip = React.useCallback(() => {
+    handleAddChip(activeChip);
+    if (isMobile) {
+      setChipsOpen(false);
+    }
+  }, [activeChip, handleAddChip, isMobile]);
+
+  const handleRemoveActiveChip = React.useCallback(() => {
+    handleChipRemoval(activeChip);
+  }, [activeChip, handleChipRemoval]);
+
+  const handleUndoChip = React.useCallback(() => {
+    handleRemoveTopChip();
+    if (isMobile) {
+      setChipsOpen(false);
+    }
+  }, [handleRemoveTopChip, isMobile]);
+
   const [insuranceHandId, insuranceAmount] = React.useMemo(() => {
     if (game.phase !== "insurance" || !seat) {
       return [null, 0] as const;
@@ -560,6 +647,61 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       : null
   ].filter((control): control is { label: string; onClick: () => void; disabled: boolean } => control !== null);
 
+  const renderChipTray = (options?: { closable?: boolean }): React.ReactNode => (
+    <>
+      <div className="nj-controls__tray-header">
+        <span>Chips</span>
+        <div className="nj-controls__tray-meta">
+          <span>{formatCurrency(seat?.baseBet ?? 0)}</span>
+          {options?.closable ? (
+            <button type="button" className="nj-chip-sheet__close" onClick={closeChipSheet}>
+              Close
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="nj-chip-row">
+        {CHIP_VALUES.map((value) => (
+          <Chip
+            key={value}
+            value={value}
+            size={56}
+            selected={activeChip === value}
+            onClick={() => handleSelectChip(value)}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              handleChipRemoval(value);
+            }}
+            aria-label={`Select ${value} chip`}
+            data-chip-motion={chipMotion?.value === value ? `${chipMotion.type}-${chipMotion.stamp}` : undefined}
+            className="nj-chip"
+          />
+        ))}
+      </div>
+      <div className="nj-tray-actions">
+        <button type="button" className="nj-btn" onClick={handleAddActiveChip} disabled={game.phase !== "betting"}>
+          Add {activeChip}
+        </button>
+        <button
+          type="button"
+          className="nj-btn nj-btn--ghost"
+          onClick={handleRemoveActiveChip}
+          disabled={game.phase !== "betting" || (seat?.baseBet ?? 0) <= 0}
+        >
+          Remove
+        </button>
+        <button
+          type="button"
+          className="nj-btn nj-btn--ghost"
+          onClick={handleUndoChip}
+          disabled={game.phase !== "betting" || (seat?.baseBet ?? 0) <= 0}
+        >
+          Undo last
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="noirjack-app">
       <div className="noirjack-felt" />
@@ -592,189 +734,170 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
           {errorBanner}
         </header>
 
-        <section className="nj-section nj-section--dealer">
-          <div className="nj-glass nj-panel">
-            <div className="nj-panel__header">
-              <span className="nj-panel__title">Dealer</span>
-              <span className="nj-panel__subtitle">{dealerStatus}</span>
+        <div className="nj-play-area">
+          <section className="nj-section nj-section--dealer">
+            <div className="nj-glass nj-panel">
+              <div className="nj-panel__header">
+                <span className="nj-panel__title">Dealer</span>
+                <span className="nj-panel__subtitle">{dealerStatus}</span>
+              </div>
+              <div className="nj-panel__cards">
+                <NoirCardFan cards={dealerCards} faceDownIndexes={faceDownIndexes} />
+              </div>
+              {game.phase === "insurance" && (
+                <div className="nj-panel__footer">Insurance available</div>
+              )}
             </div>
-            <NoirCardFan cards={dealerCards} faceDownIndexes={faceDownIndexes} />
-            {game.phase === "insurance" && (
-              <div className="nj-panel__footer">Insurance available</div>
-            )}
-          </div>
-        </section>
+          </section>
 
-        <section className="nj-section nj-section--player">
-          <div className="nj-glass nj-panel">
-            <div className="nj-panel__header">
-              <span className="nj-panel__title">Player</span>
-              <div className="nj-panel__meta">
-                <div>
-                  <span className="nj-stat__label">Total</span>
-                  <span className="nj-panel__value">{playerTotal ?? "--"}</span>
-                </div>
-                <div>
-                  <span className="nj-stat__label">Bet</span>
-                  <span className="nj-panel__value">{formatCurrency(playerBet)}</span>
+          <section className="nj-section nj-section--player">
+            <div className="nj-glass nj-panel">
+              <div className="nj-panel__header">
+                <span className="nj-panel__title">Player</span>
+                <div className="nj-panel__meta">
+                  <div>
+                    <span className="nj-stat__label">Total</span>
+                    <span className="nj-panel__value">{playerTotal ?? "--"}</span>
+                  </div>
+                  <div>
+                    <span className="nj-stat__label">Bet</span>
+                    <span className="nj-panel__value">{formatCurrency(playerBet)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="nj-hand-carousel">
-              <NoirCardFan cards={focusedHand?.cards ?? []} />
-              {playerHands.length > 1 && (
-                <div className="nj-hand-tabs" role="tablist" aria-label="Split hands">
-                  {playerHands.map((hand, index) => (
-                    <div
-                      key={hand.id}
-                      className={cn("nj-hand-tab", index === resolvedActiveIndex && "nj-hand-tab--active")}
-                      role="tab"
-                      aria-selected={index === resolvedActiveIndex}
-                    >
-                      <span>Hand {index + 1}</span>
-                      <span>{bestTotal(hand)}</span>
-                    </div>
-                  ))}
+              <div className="nj-hand-carousel">
+                <div className="nj-panel__cards">
+                  <NoirCardFan cards={focusedHand?.cards ?? []} />
+                </div>
+                {playerHands.length > 1 && (
+                  <div className="nj-hand-tabs" role="tablist" aria-label="Split hands">
+                    {playerHands.map((hand, index) => (
+                      <div
+                        key={hand.id}
+                        className={cn("nj-hand-tab", index === resolvedActiveIndex && "nj-hand-tab--active")}
+                        role="tab"
+                        aria-selected={index === resolvedActiveIndex}
+                      >
+                        <span>Hand {index + 1}</span>
+                        <span>{bestTotal(hand)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {coachMessage && (
+                <div
+                  className={cn(
+                    "nj-coach-banner",
+                    coachMessage.tone === "correct" ? "nj-coach-banner--good" : "nj-coach-banner--warn"
+                  )}
+                >
+                  {coachMessage.text}
                 </div>
               )}
             </div>
-            {coachMessage && (
-              <div
-                className={cn(
-                  "nj-coach-banner",
-                  coachMessage.tone === "correct" ? "nj-coach-banner--good" : "nj-coach-banner--warn"
-                )}
-              >
-                {coachMessage.text}
-              </div>
-            )}
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
       <div className="nj-controls nj-sticky-bottom">
-        <div className="nj-controls__tray nj-glass">
-          <div className="nj-controls__tray-header">
-            <span>Chips</span>
-            <span>{formatCurrency(seat?.baseBet ?? 0)}</span>
-          </div>
-          <div className="nj-chip-row">
-            {CHIP_VALUES.map((value) => (
-              <Chip
-                key={value}
-                value={value}
-                size={56}
-                selected={activeChip === value}
-                onClick={() => {
-                  setActiveChip(value);
-                  handleAddChip(value);
-                }}
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  setActiveChip(value);
-                  handleRemoveChipValue(value);
-                }}
-                aria-label={`Select ${value} chip`}
-                data-chip-motion={
-                  chipMotion?.value === value ? `${chipMotion.type}-${chipMotion.stamp}` : undefined
-                }
-                className="nj-chip"
-              />
-            ))}
-          </div>
-          <div className="nj-tray-actions">
-            <button
-              type="button"
-              className="nj-btn"
-              onClick={() => handleAddChip(activeChip)}
-              disabled={game.phase !== "betting"}
-            >
-              Add {activeChip}
-            </button>
-            <button
-              type="button"
-              className="nj-btn nj-btn--ghost"
-              onClick={() => handleRemoveChipValue(activeChip)}
-              disabled={game.phase !== "betting" || (seat?.baseBet ?? 0) <= 0}
-            >
-              Remove
-            </button>
-            <button
-              type="button"
-              className="nj-btn nj-btn--ghost"
-              onClick={handleRemoveTopChip}
-              disabled={game.phase !== "betting" || (seat?.baseBet ?? 0) <= 0}
-            >
-              Undo last
-            </button>
-          </div>
-        </div>
-
-        <div className="nj-controls__actions nj-glass">
-          <div className="nj-actions-primary">
-            <button
-              type="button"
-              className="nj-btn nj-btn-primary"
-              onClick={handleHit}
-              disabled={game.phase !== "playerActions" || !availability.hit}
-              data-coach={game.phase === "playerActions" ? actionHighlight("hit") : undefined}
-            >
-              Hit
-            </button>
-            <button
-              type="button"
-              className="nj-btn nj-btn-primary"
-              onClick={handleStand}
-              disabled={game.phase !== "playerActions" || !availability.stand}
-              data-coach={game.phase === "playerActions" ? actionHighlight("stand") : undefined}
-            >
-              Stand
-            </button>
-          </div>
-          <div className="nj-actions-secondary">
-            <button
-              type="button"
-              className="nj-btn"
-              onClick={handleDouble}
-              disabled={game.phase !== "playerActions" || !availability.double}
-              data-coach={game.phase === "playerActions" ? actionHighlight("double") : undefined}
-            >
-              Double
-            </button>
-            <button
-              type="button"
-              className="nj-btn"
-              onClick={handleSplit}
-              disabled={game.phase !== "playerActions" || !availability.split}
-              data-coach={game.phase === "playerActions" ? actionHighlight("split") : undefined}
-            >
-              Split
-            </button>
-            <button
-              type="button"
-              className="nj-btn"
-              onClick={handleSurrender}
-              disabled={game.phase !== "playerActions" || !availability.surrender}
-              data-coach={game.phase === "playerActions" ? actionHighlight("surrender") : undefined}
-            >
-              Surrender
-            </button>
-          </div>
-          {roundControls.length > 0 && (
-            <div className="nj-actions-round">
-              {roundControls.map((control) => (
+        <div className="nj-controls__layout">
+          <div className="nj-controls__tray-slot">
+            {isMobile ? (
+              <>
                 <button
-                  key={control.label}
                   type="button"
-                  className={cn("nj-btn", control.label === "Deal" ? "nj-btn-primary" : "nj-btn--ghost")}
-                  onClick={control.onClick}
-                  disabled={control.disabled}
+                  className="nj-btn nj-btn-primary nj-chip-trigger"
+                  onClick={() => setChipsOpen((open) => !open)}
+                  aria-expanded={chipsOpen}
+                  aria-controls={chipSheetId}
                 >
-                  {control.label}
+                  Chips
                 </button>
-              ))}
+                {chipsOpen && (
+                  <div className="nj-chip-sheet" id={chipSheetId} role="dialog" aria-modal="true" aria-label="Select chips">
+                    <button
+                      type="button"
+                      className="nj-chip-sheet__backdrop"
+                      aria-label="Close chips menu"
+                      onClick={closeChipSheet}
+                    />
+                    <div className="nj-controls__tray nj-glass nj-chip-sheet__panel">
+                      {renderChipTray({ closable: true })}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="nj-controls__tray nj-glass">{renderChipTray()}</div>
+            )}
+          </div>
+          <div className="nj-controls__actions nj-glass">
+            <div className="nj-actions-primary">
+              <button
+                type="button"
+                className="nj-btn nj-btn-primary"
+                onClick={handleHit}
+                disabled={game.phase !== "playerActions" || !availability.hit}
+                data-coach={game.phase === "playerActions" ? actionHighlight("hit") : undefined}
+              >
+                Hit
+              </button>
+              <button
+                type="button"
+                className="nj-btn nj-btn-primary"
+                onClick={handleStand}
+                disabled={game.phase !== "playerActions" || !availability.stand}
+                data-coach={game.phase === "playerActions" ? actionHighlight("stand") : undefined}
+              >
+                Stand
+              </button>
             </div>
-          )}
+            <div className="nj-actions-secondary">
+              <button
+                type="button"
+                className="nj-btn"
+                onClick={handleDouble}
+                disabled={game.phase !== "playerActions" || !availability.double}
+                data-coach={game.phase === "playerActions" ? actionHighlight("double") : undefined}
+              >
+                Double
+              </button>
+              <button
+                type="button"
+                className="nj-btn"
+                onClick={handleSplit}
+                disabled={game.phase !== "playerActions" || !availability.split}
+                data-coach={game.phase === "playerActions" ? actionHighlight("split") : undefined}
+              >
+                Split
+              </button>
+              <button
+                type="button"
+                className="nj-btn"
+                onClick={handleSurrender}
+                disabled={game.phase !== "playerActions" || !availability.surrender}
+                data-coach={game.phase === "playerActions" ? actionHighlight("surrender") : undefined}
+              >
+                Surrender
+              </button>
+            </div>
+            {roundControls.length > 0 && (
+              <div className="nj-actions-round">
+                {roundControls.map((control) => (
+                  <button
+                    key={control.label}
+                    type="button"
+                    className={cn("nj-btn", control.label === "Deal" ? "nj-btn-primary" : "nj-btn--ghost")}
+                    onClick={control.onClick}
+                    disabled={control.disabled}
+                  >
+                    {control.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

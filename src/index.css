@@ -337,8 +337,37 @@ body.skin-noirjack .noirjack-content {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: clamp(16px, 3vw, 32px);
-  padding: clamp(18px, 5vw, 36px);
+  flex: 1;
+  min-height: 0;
+  gap: clamp(12px, 3vw, 24px);
+  padding: clamp(16px, 4vw, 32px);
+}
+
+body.skin-noirjack .nj-play-area {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  gap: clamp(12px, 3vw, 24px);
+  align-items: stretch;
+}
+
+@media (max-width: 480px) {
+  body.skin-noirjack .nj-play-area {
+    grid-template-rows: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  }
+}
+
+@media (min-width: 481px) and (max-width: 1024px) {
+  body.skin-noirjack .nj-play-area {
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1025px) {
+  body.skin-noirjack .nj-play-area {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+  }
 }
 
 body.skin-noirjack .nj-topbar {
@@ -440,8 +469,10 @@ body.skin-noirjack .nj-panel {
   display: flex;
   flex-direction: column;
   gap: clamp(16px, 3vw, 24px);
-  align-items: center;
+  align-items: stretch;
   text-align: center;
+  flex: 1;
+  min-height: 0;
 }
 
 body.skin-noirjack .nj-panel__header {
@@ -475,6 +506,15 @@ body.skin-noirjack .nj-panel__value {
   letter-spacing: 0.08em;
 }
 
+body.skin-noirjack .nj-panel__cards {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
 body.skin-noirjack .nj-panel__footer {
   width: 100%;
   padding-top: 10px;
@@ -487,6 +527,10 @@ body.skin-noirjack .nj-panel__footer {
 
 body.skin-noirjack .nj-section {
   position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
 }
 
 body.skin-noirjack .nj-hand-carousel {
@@ -495,6 +539,9 @@ body.skin-noirjack .nj-hand-carousel {
   gap: 18px;
   width: 100%;
   align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
 }
 
 body.skin-noirjack .nj-hand-tabs {
@@ -560,12 +607,38 @@ body.skin-noirjack .nj-controls {
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(4, 10, 10, 0.65) 100%);
 }
 
+body.skin-noirjack .nj-controls__layout {
+  display: grid;
+  gap: clamp(14px, 3vw, 24px);
+}
+
+@media (min-width: 481px) {
+  body.skin-noirjack .nj-controls__layout {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: stretch;
+  }
+}
+
+@media (min-width: 960px) {
+  body.skin-noirjack .nj-controls__layout {
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  }
+}
+
+body.skin-noirjack .nj-controls__tray-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 body.skin-noirjack .nj-controls__tray,
 body.skin-noirjack .nj-controls__actions {
   padding: clamp(16px, 3vw, 24px);
   display: flex;
   flex-direction: column;
   gap: clamp(14px, 3vw, 22px);
+  height: 100%;
+  min-height: 0;
 }
 
 body.skin-noirjack .nj-controls__tray-header {
@@ -578,10 +651,21 @@ body.skin-noirjack .nj-controls__tray-header {
   color: var(--nj-text-muted);
 }
 
+body.skin-noirjack .nj-controls__tray-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
 body.skin-noirjack .nj-chip-row {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+body.skin-noirjack .nj-chip-trigger {
+  width: 100%;
+  min-height: 56px;
 }
 
 body.skin-noirjack .nj-chip {
@@ -956,6 +1040,51 @@ body.skin-noirjack .nj-chip[data-chip-motion] {
 body.skin-noirjack .nj-card-wrapper,
 body.skin-noirjack .nj-card {
   pointer-events: none;
+}
+
+body.skin-noirjack .nj-chip-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 clamp(16px, 5vw, 32px) calc(max(env(safe-area-inset-bottom), 20px));
+  background: rgba(4, 10, 10, 0.6);
+}
+
+body.skin-noirjack .nj-chip-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+body.skin-noirjack .nj-chip-sheet__panel {
+  position: relative;
+  width: min(100%, 420px);
+  border-radius: 24px 24px 0 0;
+  padding: clamp(18px, 5vw, 26px);
+}
+
+body.skin-noirjack .nj-chip-sheet__close {
+  appearance: none;
+  border: 1px solid rgba(233, 196, 106, 0.35);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.48);
+  color: var(--nj-text);
+  padding: 6px 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
+body.skin-noirjack .nj-chip-sheet__close:focus-visible {
+  outline: 2px solid rgba(233, 196, 106, 0.7);
+  outline-offset: 2px;
 }
 
 @keyframes njDealWrapper {
