@@ -399,6 +399,35 @@ body.skin-noirjack .nj-topbar__controls {
   gap: 8px;
 }
 
+body.skin-noirjack .nj-sound-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 196, 106, 0.2);
+}
+
+body.skin-noirjack .nj-sound-controls__slider {
+  width: 96px;
+}
+
+body.skin-noirjack .nj-sound-controls input[type="range"] {
+  width: 100%;
+  accent-color: rgba(233, 196, 106, 0.9);
+  background: transparent;
+}
+
+body.skin-noirjack .nj-sound-controls__mute,
+body.skin-noirjack .nj-sound-controls__reduce {
+  padding: 6px;
+}
+
+body.skin-noirjack .nj-sound-controls__reduce[aria-pressed="true"] {
+  background: rgba(233, 196, 106, 0.12);
+  color: var(--nj-text);
+}
+
 body.skin-noirjack .nj-topbar__mode {
   display: flex;
   justify-content: flex-end;

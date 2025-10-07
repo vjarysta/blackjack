@@ -11,6 +11,8 @@ import { NoirCardFan } from "./NoirCardFan";
 import { Chip } from "../hud/Chip";
 import { cn } from "../../utils/cn";
 import { bestTotal } from "../../engine/totals";
+import { audioService } from "../../services/AudioService";
+import { NoirSoundControls } from "./NoirSoundControls";
 
 interface NoirJackTableProps {
   game: GameState;
@@ -227,6 +229,7 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const isMobile = useMediaQuery("(max-width: 480px)");
   const chipSheetId = React.useId();
   const [chipsOpen, setChipsOpen] = React.useState(false);
+  const messageCountRef = React.useRef<number>(game.messageLog.length);
 
   React.useEffect(() => {
     if (messageTimer.current) {
@@ -365,6 +368,12 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     return null;
   }, [coachMode, flashAction, recommendedAction]);
 
+  const playActionTap = React.useCallback((action: Action) => {
+    if (action === "hit" || action === "stand") {
+      audioService.play("button");
+    }
+  }, []);
+
   const triggerFeedback = React.useCallback(
     (action: Action, callback: () => void) => {
       if (coachMode === "feedback" && recommendedAction) {
@@ -383,10 +392,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
           setFlashAction(null);
         }
       }
+      playActionTap(action);
       callback();
       vibrate();
     },
-    [coachMode, recommendedAction, vibrate]
+    [coachMode, playActionTap, recommendedAction, vibrate]
   );
 
   const handleHit = React.useCallback(() => triggerFeedback("hit", actions.playerHit), [actions.playerHit, triggerFeedback]);
@@ -419,13 +429,16 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const handleAddChip = React.useCallback(
     (value: ChipDenomination) => {
       if (game.phase !== "betting" || !seat) {
+        audioService.play("invalid");
         return;
       }
       const nextBet = seat.baseBet + value;
       if (nextBet > game.rules.maxBet || nextBet > game.bankroll) {
+        audioService.play("invalid");
         return;
       }
       actions.addChip(PRIMARY_SEAT_INDEX, value);
+      audioService.play("chipAdd");
       vibrate();
       setChipMotion({ value, type: "add", stamp: Date.now() });
     },
@@ -435,9 +448,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const handleRemoveChipValue = React.useCallback(
     (value: ChipDenomination) => {
       if (game.phase !== "betting" || !seat || seat.baseBet <= 0) {
+        audioService.play("invalid");
         return;
       }
       actions.removeChipValue(PRIMARY_SEAT_INDEX, value);
+      audioService.play("chipRemove");
       vibrate();
       setChipMotion({ value, type: "remove", stamp: Date.now() });
     },
@@ -446,9 +461,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   const handleRemoveTopChip = React.useCallback(() => {
     if (game.phase !== "betting" || !seat || seat.baseBet <= 0) {
+      audioService.play("invalid");
       return;
     }
     actions.removeTopChip(PRIMARY_SEAT_INDEX);
+    audioService.play("chipRemove");
     vibrate();
     setChipMotion({ value: activeChip, type: "remove", stamp: Date.now() });
   }, [actions, activeChip, game.phase, seat, vibrate]);
@@ -508,10 +525,19 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   const showInsuranceSheet = Boolean(insuranceHandId && game.awaitingInsuranceResolution);
 
+  const wasInsuranceOpen = usePrevious(showInsuranceSheet);
+
+  React.useEffect(() => {
+    if (showInsuranceSheet && !wasInsuranceOpen) {
+      audioService.play("insurancePrompt");
+    }
+  }, [showInsuranceSheet, wasInsuranceOpen]);
+
   const takeInsurance = React.useCallback(() => {
     if (!insuranceHandId) {
       return;
     }
+    audioService.play("button");
     vibrate();
     actions.takeInsurance(PRIMARY_SEAT_INDEX, insuranceHandId, insuranceAmount);
   }, [actions, insuranceAmount, insuranceHandId, vibrate]);
@@ -520,26 +546,31 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     if (!insuranceHandId) {
       return;
     }
+    audioService.play("button");
     vibrate();
     actions.declineInsurance(PRIMARY_SEAT_INDEX, insuranceHandId);
   }, [actions, insuranceHandId, vibrate]);
 
   const handleDeal = React.useCallback(() => {
+    audioService.play("button");
     vibrate();
     actions.deal();
   }, [actions, vibrate]);
 
   const handleFinishInsurance = React.useCallback(() => {
+    audioService.play("button");
     vibrate();
     actions.finishInsurance();
   }, [actions, vibrate]);
 
   const handlePlayDealer = React.useCallback(() => {
+    audioService.play("button");
     vibrate();
     actions.playDealer();
   }, [actions, vibrate]);
 
   const handleNextRound = React.useCallback(() => {
+    audioService.play("button");
     vibrate();
     actions.nextRound();
   }, [actions, vibrate]);
@@ -576,6 +607,22 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     return [];
   }, [game.dealer.holeCard, game.phase]);
 
+  const totalCardCount = React.useMemo(() => {
+    const dealerCount = dealerCards.length + (game.dealer.holeCard ? 1 : 0);
+    const playerCount = game.seats.reduce((sum, seatItem) => {
+      const seatCards = seatItem.hands.reduce((inner, hand) => inner + hand.cards.length, 0);
+      return sum + seatCards;
+    }, 0);
+    return dealerCount + playerCount;
+  }, [dealerCards, game.dealer.holeCard, game.seats]);
+  const previousCardCount = usePrevious(totalCardCount);
+
+  React.useEffect(() => {
+    if (typeof previousCardCount === "number" && totalCardCount > previousCardCount) {
+      audioService.play("deal");
+    }
+  }, [previousCardCount, totalCardCount]);
+
   const playerHands = seat?.hands ?? [];
   const rawActiveIndex = playerHands.findIndex((hand) => hand.id === game.activeHandId);
   const resolvedActiveIndex = rawActiveIndex >= 0 ? rawActiveIndex : playerHands.length > 0 ? 0 : -1;
@@ -590,6 +637,14 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     }
     return "Waiting";
   }, [dealerCards, faceDownIndexes, game.dealer.hand, game.dealer.upcard]);
+
+  const previousHoleCard = usePrevious(game.dealer.holeCard);
+
+  React.useEffect(() => {
+    if (previousHoleCard && !game.dealer.holeCard) {
+      audioService.play("flip");
+    }
+  }, [game.dealer.holeCard, previousHoleCard]);
 
   const playerTotal = focusedHand ? bestTotal(focusedHand) : null;
   const playerBet = focusedHand?.bet ?? seat?.baseBet ?? 0;
@@ -612,6 +667,57 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     { label: "Min", value: formatCurrency(game.rules.minBet) },
     { label: "Max", value: formatCurrency(game.rules.maxBet) }
   ];
+
+  React.useEffect(() => {
+    if (game.messageLog.length <= messageCountRef.current) {
+      messageCountRef.current = game.messageLog.length;
+      return;
+    }
+    const newMessages = game.messageLog.slice(messageCountRef.current);
+    messageCountRef.current = game.messageLog.length;
+    newMessages.forEach((message) => {
+      const normalized = message.toLowerCase();
+      if (normalized.includes("shoe reshuffled")) {
+        audioService.play("shuffle");
+        return;
+      }
+      if (normalized.includes("doubles and draws")) {
+        audioService.play("double");
+        return;
+      }
+      if (/splits\s/.test(normalized)) {
+        audioService.play("split");
+        return;
+      }
+      if (normalized.includes("surrenders")) {
+        audioService.play("surrender");
+        return;
+      }
+      if (normalized.includes("blackjack wins") || normalized.startsWith("dealer has blackjack")) {
+        audioService.play("blackjack");
+        return;
+      }
+      if (normalized.includes("busts and loses")) {
+        audioService.play("lose");
+        return;
+      }
+      if (normalized.endsWith("busts")) {
+        audioService.play("bust");
+        return;
+      }
+      if (normalized.includes("wins")) {
+        audioService.play("win");
+        return;
+      }
+      if (normalized.includes("pushes")) {
+        audioService.play("push");
+        return;
+      }
+      if (normalized.includes("loses")) {
+        audioService.play("lose");
+      }
+    });
+  }, [game.messageLog]);
 
   const actionHighlight = (action: Action): "best" | undefined =>
     highlightedAction === action ? "best" : undefined;
@@ -717,6 +823,7 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 <Info size={18} aria-hidden="true" />
               </button>
               <CoachModeSelector mode={coachMode} onChange={onCoachModeChange} />
+              <NoirSoundControls />
               <button type="button" className="nj-btn nj-btn--ghost" aria-label="Table settings">
                 <Settings2 size={18} aria-hidden="true" />
               </button>
