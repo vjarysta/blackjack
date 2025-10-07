@@ -3,6 +3,10 @@ import { Table } from "../components/Table";
 import { useGameStore } from "../store/useGameStore";
 import { Button } from "../components/ui/button";
 import { isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
+import { MobileTable } from "../components/mobile/MobileTable";
+import { useDisplayMode } from "../ui/displayMode";
+import { UIModeToggle } from "../components/UIModeToggle";
+import type { DisplayMode } from "../ui/displayMode";
 
 export const App: React.FC = () => {
   const {
@@ -28,6 +32,7 @@ export const App: React.FC = () => {
     playDealer,
     nextRound
   } = useGameStore();
+  const [displayMode, setDisplayMode] = useDisplayMode();
 
   React.useEffect(() => {
     if (!isSingleSeatMode) {
@@ -44,9 +49,52 @@ export const App: React.FC = () => {
     }
   }, [game.seats, leave, sit]);
 
+  const actions = {
+    sit,
+    leave,
+    addChip,
+    removeChipValue,
+    removeTopChip,
+    deal,
+    playerHit,
+    playerStand,
+    playerDouble,
+    playerSplit,
+    playerSurrender,
+    takeInsurance,
+    declineInsurance,
+    finishInsurance,
+    playDealer,
+    nextRound
+  };
+
+  const modeToggle = (
+    <UIModeToggle
+      mode={displayMode}
+      onChange={(mode: DisplayMode) => {
+        setDisplayMode(mode);
+      }}
+    />
+  );
+
+  if (displayMode === "mobile") {
+    return (
+      <MobileTable
+        game={game}
+        coachMode={coachMode}
+        actions={actions}
+        onCoachModeChange={setCoachMode}
+        error={error}
+        onDismissError={clearError}
+        modeToggle={modeToggle}
+      />
+    );
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-950 p-6 text-emerald-50">
       <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1400px] flex-col gap-4">
+        <div className="flex items-center justify-end">{modeToggle}</div>
         {error && (
           <div className="flex items-center justify-between rounded-md border border-rose-600 bg-rose-900/60 px-4 py-2 text-sm">
             <span>{error}</span>
@@ -55,29 +103,7 @@ export const App: React.FC = () => {
             </Button>
           </div>
         )}
-        <Table
-          game={game}
-          coachMode={coachMode}
-          actions={{
-            sit,
-            leave,
-            addChip,
-            removeChipValue,
-            removeTopChip,
-            deal,
-            playerHit,
-            playerStand,
-            playerDouble,
-            playerSplit,
-            playerSurrender,
-            takeInsurance,
-            declineInsurance,
-            finishInsurance,
-            playDealer,
-            nextRound
-          }}
-          onCoachModeChange={setCoachMode}
-        />
+        <Table game={game} coachMode={coachMode} actions={actions} onCoachModeChange={setCoachMode} />
       </div>
     </main>
   );
