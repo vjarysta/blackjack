@@ -57,13 +57,7 @@ const clamp = (value: number, min: number, max: number): number => {
   return value;
 };
 
-const rotationForIndex = (index: number): number => {
-  const pattern = [-6, -3, 0, 3, 6];
-  if (index < pattern.length) {
-    return pattern[index];
-  }
-  return index % 2 === 0 ? 4 : -4;
-};
+const rotationForIndex = (): number => 0;
 
 const renderHandBadges = (hand: Hand): React.ReactNode => {
   const badges: string[] = [];
@@ -385,7 +379,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
     dealerCards.forEach((card, index) => {
       const toX = dealerStartX + index * (CARD_WIDTH + DEALER_GAP);
       const toY = dealerTop;
-      const rotation = rotationForIndex(index);
+      const rotation = rotationForIndex();
       const content =
         index === 1 ? (
           <FlipCard
@@ -473,7 +467,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
                 id={id}
                 from={shoeOrigin}
                 to={{ x: toX, y: toY }}
-                rotation={rotationForIndex(cardIndex)}
+                rotation={rotationForIndex()}
                 delay={cardIndex * DEAL_STAGGER}
                 z={handIndex * 10 + cardIndex}
               >
