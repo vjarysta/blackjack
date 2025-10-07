@@ -952,6 +952,10 @@ body.skin-noirjack .nj-chip[data-chip-motion^="remove"] {
   animation: njChipFade 0.22s ease-out;
 }
 
+body.skin-noirjack [data-sonner-toaster] {
+  --width: min(520px, calc(100vw - 32px));
+}
+
 body.skin-noirjack .nj-toast-frame {
   background: transparent;
   box-shadow: none;
