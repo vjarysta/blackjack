@@ -988,6 +988,185 @@ body.skin-noirjack .nj-result--push {
   border-color: rgba(233, 196, 106, 0.45);
 }
 
+body.skin-noirjack [data-sonner-toaster][data-position^="bottom"] {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+
+body.skin-noirjack [data-sonner-toaster][data-position^="top"] {
+  padding-top: 20px;
+}
+
+body.skin-noirjack [data-sonner-toast] {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  width: 100%;
+}
+
+body.skin-noirjack .nj-result-toast {
+  --nj-toast-accent: var(--nj-mint);
+  --nj-toast-glow: rgba(45, 212, 191, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  min-width: min(92vw, 520px);
+  max-width: min(92vw, 520px);
+  background: var(--nj-glass);
+  border: 1px solid rgba(233, 196, 106, 0.24);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: var(--nj-shadow);
+  color: var(--nj-text);
+  backdrop-filter: blur(16px) saturate(1.08);
+}
+
+body.skin-noirjack .nj-result-toast__body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+body.skin-noirjack .nj-result-toast__icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px var(--nj-toast-glow);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--nj-toast-accent);
+}
+
+body.skin-noirjack .nj-result-toast__icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+body.skin-noirjack .nj-result-toast__text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+body.skin-noirjack .nj-result-toast__title {
+  font-family: "Cinzel", serif;
+  font-size: clamp(18px, 2.8vw, 22px);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--nj-text);
+}
+
+body.skin-noirjack .nj-result-toast__subtitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: clamp(15px, 2.4vw, 18px);
+  color: var(--nj-text-muted);
+}
+
+body.skin-noirjack .nj-result-toast__amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--nj-text);
+}
+
+body.skin-noirjack .nj-result-toast__details {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+body.skin-noirjack .nj-result-toast__details::before {
+  content: "•";
+  color: rgba(255, 255, 255, 0.3);
+}
+
+body.skin-noirjack .nj-result-toast__dismiss {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--nj-text-muted);
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+body.skin-noirjack .nj-result-toast__dismiss:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--nj-text);
+}
+
+body.skin-noirjack .nj-result-toast__dismiss:focus-visible {
+  outline: 2px solid var(--nj-gold);
+  outline-offset: 3px;
+}
+
+body.skin-noirjack .nj-result-toast--win {
+  --nj-toast-accent: var(--nj-win);
+  --nj-toast-glow: rgba(34, 197, 94, 0.26);
+}
+
+body.skin-noirjack .nj-result-toast--lose {
+  --nj-toast-accent: var(--nj-lose);
+  --nj-toast-glow: rgba(220, 38, 38, 0.22);
+}
+
+body.skin-noirjack .nj-result-toast--push {
+  --nj-toast-accent: rgba(209, 213, 219, 0.85);
+  --nj-toast-glow: rgba(209, 213, 219, 0.2);
+}
+
+body.skin-noirjack .nj-result-toast--blackjack {
+  --nj-toast-accent: var(--nj-gold);
+  --nj-toast-glow: rgba(233, 196, 106, 0.32);
+}
+
+body.skin-noirjack .nj-result-toast--win .nj-result-toast__title {
+  color: var(--nj-win);
+}
+
+body.skin-noirjack .nj-result-toast--lose .nj-result-toast__title {
+  color: var(--nj-lose);
+}
+
+body.skin-noirjack .nj-result-toast--push .nj-result-toast__title {
+  color: var(--nj-text-muted);
+}
+
+body.skin-noirjack .nj-result-toast--blackjack .nj-result-toast__title {
+  color: var(--nj-gold);
+}
+
+@media (max-width: 600px) {
+  body.skin-noirjack .nj-result-toast {
+    min-width: min(94vw, 360px);
+    padding: 18px 20px;
+    gap: 14px;
+  }
+
+  body.skin-noirjack .nj-result-toast__icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  body.skin-noirjack .nj-result-toast__title {
+    font-size: clamp(16px, 5vw, 19px);
+    letter-spacing: 0.18em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.skin-noirjack .nj-result-toast__dismiss {
+    transition: none;
+  }
+}
+
 body.skin-noirjack .nj-error {
   padding: 10px 14px;
   margin-top: 6px;
