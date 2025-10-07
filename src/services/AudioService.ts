@@ -1,11 +1,11 @@
 import { Howl } from "howler";
-import cardDeal from "../assets/audio/card-deal.mp3";
-import cardFlip from "../assets/audio/card-flip.mp3";
-import chipStack from "../assets/audio/chip-stack.mp3";
-import insuranceCash from "../assets/audio/insurance-cash.mp3";
-import loseSwell from "../assets/audio/lose-swell.mp3";
-import pushChime from "../assets/audio/push-chime.mp3";
-import winFanfare from "../assets/audio/win-fanfare.mp3";
+import chipStack from "../assets/audio/2 Card Playing FX2_1.wav";
+import cardDeal from "../assets/audio/Card Deal 2.wav";
+import cardFlip from "../assets/audio/Card Slide 1.wav";
+import insuranceCash from "../assets/audio/Card Slide 2.wav";
+import loseSwell from "../assets/audio/Card Slap 3.wav";
+import pushChime from "../assets/audio/Card Slap 2.wav";
+import winFanfare from "../assets/audio/Full deal 1.wav";
 
 type ResultSound = "win" | "lose" | "push" | "blackjack" | "insurance";
 
