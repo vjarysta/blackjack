@@ -467,19 +467,35 @@ const dealerShouldHit = (state: GameState): boolean => {
   return false;
 };
 
-export const playDealer = (state: GameState): void => {
+export type DealerStepResult = "idle" | "hit" | "stand";
+
+export const playDealerStep = (state: GameState): DealerStepResult => {
   if (state.phase !== "dealerPlay") {
-    return;
+    return "idle";
   }
   state.dealer.hand.isResolved = false;
-  while (dealerShouldHit(state)) {
+  if (dealerShouldHit(state)) {
     const card = drawCard(state.shoe);
     state.dealer.hand.cards.push(card);
     appendLog(state, `Dealer draws ${card.rank}${card.suit}`);
+    return "hit";
   }
   const total = bestTotal(state.dealer.hand);
   appendLog(state, `Dealer stands with ${total}`);
   nextPhase(state, "settlement");
+  return "stand";
+};
+
+export const playDealer = (state: GameState): void => {
+  if (state.phase !== "dealerPlay") {
+    return;
+  }
+  while (true) {
+    const result = playDealerStep(state);
+    if (result !== "hit") {
+      break;
+    }
+  }
 };
 
 const blackjackPayoutMultiplier = (rules: RuleConfig): number => {
