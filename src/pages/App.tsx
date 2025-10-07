@@ -7,6 +7,7 @@ import { NoirJackTable } from "../components/noirjack/NoirJackTable";
 import { useDisplayMode } from "../ui/displayMode";
 import { UIModeToggle } from "../components/UIModeToggle";
 import type { DisplayMode } from "../ui/displayMode";
+import { audioService } from "../services/AudioService";
 
 export const App: React.FC = () => {
   const {
@@ -78,6 +79,23 @@ export const App: React.FC = () => {
   );
 
   React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const options: AddEventListenerOptions = { capture: true };
+    const handlePointerDown = () => {
+      if (!audioService.isReady()) {
+        audioService.init();
+      }
+      window.removeEventListener("pointerdown", handlePointerDown, options);
+    };
+    window.addEventListener("pointerdown", handlePointerDown, options);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown, options);
+    };
+  }, []);
+
+  React.useEffect(() => {
     if (typeof document === "undefined") {
       return;
     }
@@ -85,6 +103,10 @@ export const App: React.FC = () => {
     return () => {
       document.body.classList.remove("skin-noirjack");
     };
+  }, [displayMode]);
+
+  React.useEffect(() => {
+    audioService.setTheme(displayMode === "noirjack" ? "noirjack" : "classic");
   }, [displayMode]);
 
   if (displayMode === "noirjack") {

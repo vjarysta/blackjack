@@ -399,6 +399,51 @@ body.skin-noirjack .nj-topbar__controls {
   gap: 8px;
 }
 
+body.skin-noirjack .nj-audio {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+body.skin-noirjack .nj-audio__mute {
+  padding: 4px;
+  min-height: 0;
+  min-width: 0;
+}
+
+body.skin-noirjack .nj-audio__mute svg {
+  width: 16px;
+  height: 16px;
+}
+
+body.skin-noirjack .nj-audio__slider {
+  display: inline-flex;
+  align-items: center;
+}
+
+body.skin-noirjack .nj-audio__slider input[type="range"] {
+  width: 90px;
+  accent-color: var(--nj-gold);
+  cursor: pointer;
+}
+
+body.skin-noirjack .nj-audio__reduce {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--nj-text-muted);
+}
+
+body.skin-noirjack .nj-audio__reduce input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--nj-gold);
+  cursor: pointer;
+}
+
 body.skin-noirjack .nj-topbar__mode {
   display: flex;
   justify-content: flex-end;

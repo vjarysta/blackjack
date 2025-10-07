@@ -7,8 +7,6 @@ const LEGACY_QUERY_KEY = "ui";
 const DISPLAY_STORAGE_KEY = "ui.display";
 const DEFAULT_MODE: DisplayMode = "noirjack";
 
-const isValidMode = (value: string | null): value is DisplayMode => value === "classic" || value === "noirjack";
-
 const mapLegacyMode = (value: string | null): DisplayMode | null => {
   if (!value) {
     return null;

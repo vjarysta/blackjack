@@ -11,6 +11,8 @@ import { NoirCardFan } from "./NoirCardFan";
 import { Chip } from "../hud/Chip";
 import { cn } from "../../utils/cn";
 import { bestTotal } from "../../engine/totals";
+import { audioService } from "../../services/AudioService";
+import { NoirAudioControls } from "./NoirAudioControls";
 
 interface NoirJackTableProps {
   game: GameState;
@@ -175,6 +177,18 @@ interface ActionAvailability {
   nextRound: boolean;
 }
 
+const actionsWithDeferredSound = new Set<Action>(["hit", "double", "split", "surrender"]);
+
+const countTotalCards = (game: GameState): number => {
+  let total = game.dealer.hand.cards.length;
+  for (const seat of game.seats) {
+    for (const hand of seat.hands) {
+      total += hand.cards.length;
+    }
+  }
+  return total;
+};
+
 const CoachModeSelector: React.FC<{ mode: CoachMode; onChange: (mode: CoachMode) => void }> = ({ mode, onChange }) => {
   const labels: Record<CoachMode, string> = {
     off: "Off",
@@ -186,6 +200,7 @@ const CoachModeSelector: React.FC<{ mode: CoachMode; onChange: (mode: CoachMode)
     const order: CoachMode[] = ["off", "feedback", "live"];
     const index = order.indexOf(mode);
     const nextMode = order[(index + 1) % order.length];
+    audioService.play("button");
     onChange(nextMode);
   }, [mode, onChange]);
 
@@ -222,6 +237,12 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const [chipMotion, setChipMotion] = React.useState<{ value: ChipDenomination; type: "add" | "remove"; stamp: number } | null>(
     null
   );
+  const cardStateRef = React.useRef({
+    total: countTotalCards(game),
+    dealer: game.dealer.hand.cards.length,
+    holeCard: Boolean(game.dealer.holeCard)
+  });
+  const logCursorRef = React.useRef<number>(game.messageLog.length);
   const prefersReducedMotion = usePrefersReducedMotion();
   const vibrate = useHaptics(prefersReducedMotion);
   const isMobile = useMediaQuery("(max-width: 480px)");
@@ -279,6 +300,21 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [chipsOpen, isMobile]);
+
+  React.useEffect(() => {
+    const total = countTotalCards(game);
+    const dealerCount = game.dealer.hand.cards.length;
+    const holeCardPresent = Boolean(game.dealer.holeCard);
+    const previous = cardStateRef.current;
+    const holeCardRevealed = previous.holeCard && !holeCardPresent && dealerCount === previous.dealer + 1;
+    if (holeCardRevealed) {
+      audioService.play("flip");
+    }
+    if (total > previous.total && !holeCardRevealed) {
+      audioService.play("deal");
+    }
+    cardStateRef.current = { total, dealer: dealerCount, holeCard: holeCardPresent };
+  }, [game]);
 
   const seat = game.seats[PRIMARY_SEAT_INDEX] ?? null;
   const activeHand = findActiveHand(game);
@@ -365,13 +401,16 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     return null;
   }, [coachMode, flashAction, recommendedAction]);
 
-  const triggerFeedback = React.useCallback(
-    (action: Action, callback: () => void) => {
-      if (coachMode === "feedback" && recommendedAction) {
-        const correct = action === recommendedAction;
-        setCoachMessage({ tone: correct ? "correct" : "better", text: buildCoachMessage(recommendedAction, correct) });
-        if (!correct) {
-          setFlashAction(recommendedAction);
+    const triggerFeedback = React.useCallback(
+      (action: Action, callback: () => void) => {
+        if (!actionsWithDeferredSound.has(action)) {
+          audioService.play("button");
+        }
+        if (coachMode === "feedback" && recommendedAction) {
+          const correct = action === recommendedAction;
+          setCoachMessage({ tone: correct ? "correct" : "better", text: buildCoachMessage(recommendedAction, correct) });
+          if (!correct) {
+            setFlashAction(recommendedAction);
           if (highlightTimer.current) {
             window.clearTimeout(highlightTimer.current);
           }
@@ -416,44 +455,54 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     [actionContext, game]
   );
 
-  const handleAddChip = React.useCallback(
-    (value: ChipDenomination) => {
-      if (game.phase !== "betting" || !seat) {
-        return;
-      }
-      const nextBet = seat.baseBet + value;
-      if (nextBet > game.rules.maxBet || nextBet > game.bankroll) {
-        return;
-      }
-      actions.addChip(PRIMARY_SEAT_INDEX, value);
-      vibrate();
-      setChipMotion({ value, type: "add", stamp: Date.now() });
-    },
-    [actions, game.bankroll, game.phase, game.rules.maxBet, seat, vibrate]
-  );
+    const handleAddChip = React.useCallback(
+      (value: ChipDenomination) => {
+        if (game.phase !== "betting" || !seat) {
+          audioService.play("invalid");
+          return;
+        }
+        const nextBet = seat.baseBet + value;
+        if (nextBet > game.rules.maxBet || nextBet > game.bankroll) {
+          audioService.play("invalid");
+          return;
+        }
+        actions.addChip(PRIMARY_SEAT_INDEX, value);
+        vibrate();
+        setChipMotion({ value, type: "add", stamp: Date.now() });
+        audioService.play("chipAdd");
+      },
+      [actions, game.bankroll, game.phase, game.rules.maxBet, seat, vibrate]
+    );
 
-  const handleRemoveChipValue = React.useCallback(
-    (value: ChipDenomination) => {
+    const handleRemoveChipValue = React.useCallback(
+      (value: ChipDenomination) => {
+        if (game.phase !== "betting" || !seat || seat.baseBet <= 0) {
+          audioService.play("invalid");
+          return;
+        }
+        actions.removeChipValue(PRIMARY_SEAT_INDEX, value);
+        vibrate();
+        setChipMotion({ value, type: "remove", stamp: Date.now() });
+        audioService.play("chipRemove");
+      },
+      [actions, game.phase, seat, vibrate]
+    );
+
+    const handleRemoveTopChip = React.useCallback(() => {
       if (game.phase !== "betting" || !seat || seat.baseBet <= 0) {
+        audioService.play("invalid");
         return;
       }
-      actions.removeChipValue(PRIMARY_SEAT_INDEX, value);
+      actions.removeTopChip(PRIMARY_SEAT_INDEX);
       vibrate();
-      setChipMotion({ value, type: "remove", stamp: Date.now() });
-    },
-    [actions, game.phase, seat, vibrate]
-  );
+      setChipMotion({ value: activeChip, type: "remove", stamp: Date.now() });
+      audioService.play("chipRemove");
+    }, [actions, activeChip, game.phase, seat, vibrate]);
 
-  const handleRemoveTopChip = React.useCallback(() => {
-    if (game.phase !== "betting" || !seat || seat.baseBet <= 0) {
-      return;
-    }
-    actions.removeTopChip(PRIMARY_SEAT_INDEX);
-    vibrate();
-    setChipMotion({ value: activeChip, type: "remove", stamp: Date.now() });
-  }, [actions, activeChip, game.phase, seat, vibrate]);
-
-  const closeChipSheet = React.useCallback(() => setChipsOpen(false), []);
+    const closeChipSheet = React.useCallback(() => {
+      audioService.play("button");
+      setChipsOpen(false);
+    }, []);
 
   const handleSelectChip = React.useCallback(
     (value: ChipDenomination) => {
@@ -507,42 +556,55 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   }, [game.bankroll, game.phase, seat]);
 
   const showInsuranceSheet = Boolean(insuranceHandId && game.awaitingInsuranceResolution);
+  const insuranceWasOpen = usePrevious(showInsuranceSheet);
 
-  const takeInsurance = React.useCallback(() => {
-    if (!insuranceHandId) {
-      return;
+  React.useEffect(() => {
+    if (showInsuranceSheet && !insuranceWasOpen) {
+      audioService.play("insurancePrompt");
     }
-    vibrate();
-    actions.takeInsurance(PRIMARY_SEAT_INDEX, insuranceHandId, insuranceAmount);
-  }, [actions, insuranceAmount, insuranceHandId, vibrate]);
+  }, [insuranceWasOpen, showInsuranceSheet]);
 
-  const skipInsurance = React.useCallback(() => {
-    if (!insuranceHandId) {
-      return;
-    }
-    vibrate();
-    actions.declineInsurance(PRIMARY_SEAT_INDEX, insuranceHandId);
-  }, [actions, insuranceHandId, vibrate]);
+    const takeInsurance = React.useCallback(() => {
+      if (!insuranceHandId) {
+        return;
+      }
+      audioService.play("button");
+      vibrate();
+      actions.takeInsurance(PRIMARY_SEAT_INDEX, insuranceHandId, insuranceAmount);
+    }, [actions, insuranceAmount, insuranceHandId, vibrate]);
 
-  const handleDeal = React.useCallback(() => {
-    vibrate();
-    actions.deal();
-  }, [actions, vibrate]);
+    const skipInsurance = React.useCallback(() => {
+      if (!insuranceHandId) {
+        return;
+      }
+      audioService.play("button");
+      vibrate();
+      actions.declineInsurance(PRIMARY_SEAT_INDEX, insuranceHandId);
+    }, [actions, insuranceHandId, vibrate]);
 
-  const handleFinishInsurance = React.useCallback(() => {
-    vibrate();
-    actions.finishInsurance();
-  }, [actions, vibrate]);
+    const handleDeal = React.useCallback(() => {
+      audioService.play("button");
+      vibrate();
+      actions.deal();
+    }, [actions, vibrate]);
 
-  const handlePlayDealer = React.useCallback(() => {
-    vibrate();
-    actions.playDealer();
-  }, [actions, vibrate]);
+    const handleFinishInsurance = React.useCallback(() => {
+      audioService.play("button");
+      vibrate();
+      actions.finishInsurance();
+    }, [actions, vibrate]);
 
-  const handleNextRound = React.useCallback(() => {
-    vibrate();
-    actions.nextRound();
-  }, [actions, vibrate]);
+    const handlePlayDealer = React.useCallback(() => {
+      audioService.play("button");
+      vibrate();
+      actions.playDealer();
+    }, [actions, vibrate]);
+
+    const handleNextRound = React.useCallback(() => {
+      audioService.play("button");
+      vibrate();
+      actions.nextRound();
+    }, [actions, vibrate]);
 
   const prevPhase = usePrevious(game.phase);
 
@@ -564,6 +626,52 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       setResult(null);
     }
   }, [game.messageLog, game.phase, prevPhase]);
+
+  React.useEffect(() => {
+    const previousLength = logCursorRef.current;
+    if (game.messageLog.length > previousLength) {
+      const newMessages = game.messageLog.slice(previousLength);
+      for (const message of newMessages) {
+        const lower = message.toLowerCase();
+        if (lower.includes("shoe reshuffled")) {
+          audioService.play("shuffle");
+          continue;
+        }
+        if (lower.includes("blackjack wins")) {
+          audioService.play("blackjack");
+          continue;
+        }
+        if (lower.includes("doubles and draws")) {
+          audioService.play("double");
+          continue;
+        }
+        if (lower.includes("splits")) {
+          audioService.play("split");
+          continue;
+        }
+        if (lower.includes("surrenders")) {
+          audioService.play("surrender");
+          continue;
+        }
+        if (lower.includes("busts")) {
+          audioService.play("bust");
+          continue;
+        }
+        if (lower.includes("pushes")) {
+          audioService.play("push");
+          continue;
+        }
+        if (lower.includes("wins")) {
+          audioService.play("win");
+          continue;
+        }
+        if (lower.includes("loses")) {
+          audioService.play("lose");
+        }
+      }
+    }
+    logCursorRef.current = game.messageLog.length;
+  }, [game.messageLog]);
 
   const dealerCards = game.dealer.hand.cards;
   const faceDownIndexes = React.useMemo(() => {
@@ -594,14 +702,21 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const playerTotal = focusedHand ? bestTotal(focusedHand) : null;
   const playerBet = focusedHand?.bet ?? seat?.baseBet ?? 0;
 
-  const errorBanner = error ? (
-    <div className="nj-glass nj-error" role="alert">
-      <span>{error}</span>
-      <button type="button" className="nj-btn nj-btn--ghost" onClick={onDismissError}>
-        Dismiss
-      </button>
-    </div>
-  ) : null;
+    const errorBanner = error ? (
+      <div className="nj-glass nj-error" role="alert">
+        <span>{error}</span>
+        <button
+          type="button"
+          className="nj-btn nj-btn--ghost"
+          onClick={() => {
+            audioService.play("button");
+            onDismissError();
+          }}
+        >
+          Dismiss
+        </button>
+      </div>
+    ) : null;
 
   const stats = [
     { label: "Bankroll", value: formatCurrency(game.bankroll) },
@@ -707,21 +822,32 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       <div className="noirjack-felt" />
       <div className="noirjack-content">
         <header className="nj-topbar">
-          <div className="nj-topbar__brand">
-            <span className="nj-logo" aria-hidden="true">
-              NOIRJACK
-            </span>
-            <span className="sr-only">NoirJack Blackjack table</span>
-            <div className="nj-topbar__controls">
-              <button type="button" className="nj-btn nj-btn--ghost" aria-label="Table information">
-                <Info size={18} aria-hidden="true" />
-              </button>
-              <CoachModeSelector mode={coachMode} onChange={onCoachModeChange} />
-              <button type="button" className="nj-btn nj-btn--ghost" aria-label="Table settings">
-                <Settings2 size={18} aria-hidden="true" />
-              </button>
+            <div className="nj-topbar__brand">
+              <span className="nj-logo" aria-hidden="true">
+                NOIRJACK
+              </span>
+              <span className="sr-only">NoirJack Blackjack table</span>
+              <div className="nj-topbar__controls">
+                <button
+                  type="button"
+                  className="nj-btn nj-btn--ghost"
+                  aria-label="Table information"
+                  onClick={() => audioService.play("button")}
+                >
+                  <Info size={18} aria-hidden="true" />
+                </button>
+                <CoachModeSelector mode={coachMode} onChange={onCoachModeChange} />
+                <NoirAudioControls />
+                <button
+                  type="button"
+                  className="nj-btn nj-btn--ghost"
+                  aria-label="Table settings"
+                  onClick={() => audioService.play("button")}
+                >
+                  <Settings2 size={18} aria-hidden="true" />
+                </button>
+              </div>
             </div>
-          </div>
           <div className="nj-topbar__mode">{modeToggle}</div>
           <div className="nj-topbar__stats nj-glass">
             {stats.map((item) => (
@@ -805,15 +931,18 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
           <div className="nj-controls__tray-slot">
             {isMobile ? (
               <>
-                <button
-                  type="button"
-                  className="nj-btn nj-btn-primary nj-chip-trigger"
-                  onClick={() => setChipsOpen((open) => !open)}
-                  aria-expanded={chipsOpen}
-                  aria-controls={chipSheetId}
-                >
-                  Chips
-                </button>
+                  <button
+                    type="button"
+                    className="nj-btn nj-btn-primary nj-chip-trigger"
+                    onClick={() => {
+                      audioService.play("button");
+                      setChipsOpen((open) => !open);
+                    }}
+                    aria-expanded={chipsOpen}
+                    aria-controls={chipSheetId}
+                  >
+                    Chips
+                  </button>
                 {chipsOpen && (
                   <div className="nj-chip-sheet" id={chipSheetId} role="dialog" aria-modal="true" aria-label="Select chips">
                     <button
