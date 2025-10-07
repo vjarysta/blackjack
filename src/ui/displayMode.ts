@@ -1,12 +1,26 @@
 import React from "react";
 
-export type DisplayMode = "classic" | "mobile";
+export type DisplayMode = "classic" | "noirjack";
 
-const DISPLAY_QUERY_KEY = "ui";
+const DISPLAY_QUERY_KEY = "skin";
+const LEGACY_QUERY_KEY = "ui";
 const DISPLAY_STORAGE_KEY = "ui.display";
-const DEFAULT_MODE: DisplayMode = "classic";
+const DEFAULT_MODE: DisplayMode = "noirjack";
 
-const isValidMode = (value: string | null): value is DisplayMode => value === "classic" || value === "mobile";
+const isValidMode = (value: string | null): value is DisplayMode => value === "classic" || value === "noirjack";
+
+const mapLegacyMode = (value: string | null): DisplayMode | null => {
+  if (!value) {
+    return null;
+  }
+  if (value === "classic") {
+    return "classic";
+  }
+  if (value === "mobile" || value === "noirjack") {
+    return "noirjack";
+  }
+  return null;
+};
 
 const readStoredMode = (): DisplayMode | null => {
   if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
@@ -14,8 +28,9 @@ const readStoredMode = (): DisplayMode | null => {
   }
   try {
     const stored = window.localStorage.getItem(DISPLAY_STORAGE_KEY);
-    if (isValidMode(stored)) {
-      return stored;
+    const mapped = mapLegacyMode(stored);
+    if (mapped) {
+      return mapped;
     }
   } catch {
     // ignore storage errors
@@ -42,8 +57,10 @@ const setQueryParam = (mode: DisplayMode): void => {
     const url = new URL(window.location.href);
     if (mode === DEFAULT_MODE) {
       url.searchParams.delete(DISPLAY_QUERY_KEY);
+      url.searchParams.delete(LEGACY_QUERY_KEY);
     } else {
       url.searchParams.set(DISPLAY_QUERY_KEY, mode);
+      url.searchParams.set(LEGACY_QUERY_KEY, mode);
     }
     window.history.replaceState({}, "", url.toString());
   } catch {
@@ -57,10 +74,11 @@ const resolveInitialMode = (): DisplayMode => {
   }
   try {
     const params = new URLSearchParams(window.location.search);
-    const queryMode = params.get(DISPLAY_QUERY_KEY);
-    if (isValidMode(queryMode)) {
-      persistMode(queryMode);
-      return queryMode;
+    const queryMode = params.get(DISPLAY_QUERY_KEY) ?? params.get(LEGACY_QUERY_KEY);
+    const mappedQuery = mapLegacyMode(queryMode);
+    if (mappedQuery) {
+      persistMode(mappedQuery);
+      return mappedQuery;
     }
   } catch {
     // ignore query parse errors
