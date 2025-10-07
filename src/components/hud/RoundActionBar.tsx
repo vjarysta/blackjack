@@ -8,7 +8,6 @@ import { ANIM, REDUCED } from "../../utils/animConstants";
 import { filterSeatsForMode } from "../../ui/config";
 import type { CoachMode } from "../../store/useGameStore";
 import { getRecommendation, type Action, type PlayerContext } from "../../utils/basicStrategy";
-import { cn } from "../../utils/cn";
 
 export type CoachFeedback = {
   tone: "correct" | "better" | "info";
@@ -79,12 +78,6 @@ const buildCorrectMessage = (action: Action): string =>
 
 const buildMistakeMessage = (action: Action): string =>
   `Mistake: should have chosen ${formatAction(action)}.`;
-
-const FEEDBACK_STYLES: Record<CoachFeedback["tone"], string> = {
-  correct: "border-emerald-400/60 bg-emerald-900/70 text-emerald-100",
-  better: "border-[#c8a24a]/60 bg-[#36240c]/80 text-[#f4dba5]",
-  info: "border-emerald-300/50 bg-emerald-800/60 text-emerald-100"
-};
 
 export const RoundActionBar: React.FC<RoundActionBarProps> = ({
   game,
@@ -294,17 +287,6 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
       </div>
 
       <div className="ml-auto flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-        {feedback && (
-          <div
-            role="status"
-            className={cn(
-              "inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.3em]",
-              FEEDBACK_STYLES[feedback.tone]
-            )}
-          >
-            {feedback.message}
-          </div>
-        )}
         {actionContext && (
           <div className="flex items-center gap-2">
             <span className="hidden text-[10px] uppercase tracking-[0.4em] text-emerald-200 md:inline">

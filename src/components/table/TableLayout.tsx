@@ -8,6 +8,7 @@ import { CardLayer } from "./CardLayer";
 import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar, type CoachFeedback } from "../hud/RoundActionBar";
+import { CoachFeedbackPanel } from "../hud/CoachFeedbackPanel";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
 import { ResultBanner, type ResultKind } from "./ResultBanner";
 import type { CoachMode } from "../../store/useGameStore";
@@ -315,6 +316,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
       data-testid="table-layout"
       className="relative flex h-full w-full flex-col items-center overflow-hidden px-2 sm:px-6"
     >
+      <CoachFeedbackPanel feedback={coachFeedback} />
       <div
         className="relative flex w-full flex-1 items-center justify-center"
         style={{ paddingTop: STAGE_PADDING, paddingBottom: STAGE_PADDING }}
