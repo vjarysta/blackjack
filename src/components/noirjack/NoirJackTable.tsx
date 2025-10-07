@@ -10,7 +10,9 @@ import { getRecommendation, type Action, type PlayerContext } from "../../utils/
 import { NoirCardFan } from "./NoirCardFan";
 import { Chip } from "../hud/Chip";
 import { cn } from "../../utils/cn";
-import { bestTotal } from "../../engine/totals";
+import { bestTotal, isBust } from "../../engine/totals";
+import { ResultToast, type ResultKind } from "./ResultToast";
+import { NoirJackResultToaster } from "./NoirJackResultToaster";
 
 interface NoirJackTableProps {
   game: GameState;
@@ -65,41 +67,10 @@ const findActiveHand = (game: GameState): Hand | null => {
   return null;
 };
 
-const parseResultMessage = (messages: string[]): { tone: ResultTone; message: string } | null => {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message.startsWith("Seat 1")) {
-      continue;
-    }
-    if (message.includes("wins")) {
-      const amountMatch = message.match(/€([0-9.,]+)/);
-      const amount = amountMatch ? Number.parseFloat(amountMatch[1].replace(",", "")) : null;
-      return {
-        tone: "win",
-        message: amount ? `Win +€${amount.toFixed(2)}` : "Win"
-      };
-    }
-    if (message.includes("push")) {
-      return { tone: "push", message: "Push" };
-    }
-    if (message.includes("loses")) {
-      const amountMatch = message.match(/€([0-9.,]+)/);
-      const amount = amountMatch ? Number.parseFloat(amountMatch[1].replace(",", "")) : null;
-      return {
-        tone: "lose",
-        message: amount ? `Lose -€${amount.toFixed(2)}` : "Lose"
-      };
-    }
-  }
-  return null;
-};
-
 const buildCoachMessage = (action: Action, correct: boolean): string => {
   const label = action.charAt(0).toUpperCase() + action.slice(1);
   return correct ? `Nice! ${label} was the right move.` : `Try ${label} next time.`;
 };
-
-type ResultTone = "win" | "lose" | "push";
 
 const usePrevious = <T,>(value: T): T | undefined => {
   const ref = React.useRef<T>();
@@ -163,6 +134,120 @@ const useHaptics = (disabled: boolean): (() => void) => {
   }, [disabled]);
 };
 
+interface HandResolution {
+  net: number;
+  outcome: ResultKind;
+  detail?: string;
+}
+
+const normalizeAmount = (value: number): number => {
+  const rounded = Math.round(value * 100) / 100;
+  return Math.abs(rounded) < 0.005 ? 0 : rounded;
+};
+
+const describeHand = (hand: Hand, game: GameState): HandResolution => {
+  const bet = hand.bet;
+  const insurance = hand.insuranceBet ?? 0;
+  const dealerHand = game.dealer.hand;
+  const dealerBust = isBust(dealerHand);
+  const dealerBlackjack = dealerHand.isBlackjack;
+  const playerBust = isBust(hand);
+  const blackjackMultiplier = game.rules.blackjackPayout === "6:5" ? 1.2 : 1.5;
+
+  let net = 0;
+  let outcome: ResultKind = "push";
+  let detail: string | undefined;
+
+  if (hand.isSurrendered) {
+    net -= bet / 2;
+    outcome = "lose";
+    detail = "Surrendered";
+  } else if (dealerBlackjack) {
+    if (hand.isBlackjack) {
+      outcome = "push";
+      detail = "Blackjack push";
+    } else {
+      net -= bet;
+      outcome = "lose";
+      detail = "Dealer blackjack";
+    }
+  } else if (playerBust) {
+    net -= bet;
+    outcome = "lose";
+    detail = "Player busts";
+  } else if (hand.isBlackjack) {
+    net += bet * blackjackMultiplier;
+    outcome = "blackjack";
+    detail = `Blackjack ${game.rules.blackjackPayout}`;
+  } else if (dealerBust) {
+    net += bet;
+    outcome = "win";
+    detail = "Dealer busts";
+  } else {
+    const playerTotal = bestTotal(hand);
+    const dealerTotal = bestTotal(dealerHand);
+    if (playerTotal > dealerTotal) {
+      net += bet;
+      outcome = "win";
+      detail = `${playerTotal} vs ${dealerTotal}`;
+    } else if (playerTotal === dealerTotal) {
+      outcome = "push";
+      detail = `${playerTotal} each`;
+    } else {
+      net -= bet;
+      outcome = "lose";
+      detail = `${playerTotal} vs ${dealerTotal}`;
+    }
+  }
+
+  if (insurance > 0) {
+    if (dealerBlackjack) {
+      net += insurance * 2;
+      detail = detail ? `${detail} • Insurance pays` : "Insurance pays";
+    } else {
+      net -= insurance;
+      detail = detail ? `${detail} • Insurance lost` : "Insurance lost";
+    }
+  }
+
+  return { net, outcome, detail };
+};
+
+const summarizeSettlement = (game: GameState): { kind: ResultKind; amount: number; details?: string } | null => {
+  const seat = game.seats[PRIMARY_SEAT_INDEX];
+  if (!seat || !seat.occupied) {
+    return null;
+  }
+  const hands = seat.hands;
+  if (!hands || hands.length === 0) {
+    return null;
+  }
+
+  const resolutions = hands.map((hand) => describeHand(hand, game));
+  const total = resolutions.reduce((sum, entry) => sum + entry.net, 0);
+  const amount = normalizeAmount(total);
+  const anyBlackjack = resolutions.some((entry) => entry.outcome === "blackjack" && entry.net > 0);
+
+  let kind: ResultKind;
+  if (amount > 0) {
+    kind = anyBlackjack ? "blackjack" : "win";
+  } else if (amount < 0) {
+    kind = "lose";
+  } else {
+    kind = "push";
+  }
+
+  const details =
+    resolutions.length > 1 ? `${resolutions.length} hands settled` : resolutions[0]?.detail;
+
+  const meaningful = resolutions.some((entry) => Math.abs(entry.net) > 0.004 || entry.outcome !== "push");
+  if (!meaningful && amount === 0) {
+    return { kind: "push", amount: 0, details };
+  }
+
+  return { kind, amount, details };
+};
+
 interface ActionAvailability {
   hit: boolean;
   stand: boolean;
@@ -217,8 +302,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const [flashAction, setFlashAction] = React.useState<Action | null>(null);
   const messageTimer = React.useRef<number | null>(null);
   const highlightTimer = React.useRef<number | null>(null);
-  const [result, setResult] = React.useState<{ tone: ResultTone; message: string } | null>(null);
-  const resultTimer = React.useRef<number | null>(null);
   const [chipMotion, setChipMotion] = React.useState<{ value: ChipDenomination; type: "add" | "remove"; stamp: number } | null>(
     null
   );
@@ -248,9 +331,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   React.useEffect(() => {
     return () => {
-      if (resultTimer.current) {
-        window.clearTimeout(resultTimer.current);
-      }
       if (highlightTimer.current) {
         window.clearTimeout(highlightTimer.current);
       }
@@ -548,22 +628,12 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   React.useEffect(() => {
     if (game.phase === "settlement" && prevPhase !== "settlement") {
-      const parsed = parseResultMessage(game.messageLog);
-      if (parsed) {
-        setResult(parsed);
-        if (resultTimer.current) {
-          window.clearTimeout(resultTimer.current);
-        }
-        resultTimer.current = window.setTimeout(() => {
-          setResult(null);
-          resultTimer.current = null;
-        }, 1800);
+      const summary = summarizeSettlement(game);
+      if (summary) {
+        ResultToast.show(summary.kind, summary.amount, summary.details);
       }
     }
-    if (game.phase !== "settlement" && prevPhase === "settlement") {
-      setResult(null);
-    }
-  }, [game.messageLog, game.phase, prevPhase]);
+  }, [game, prevPhase]);
 
   const dealerCards = game.dealer.hand.cards;
   const faceDownIndexes = React.useMemo(() => {
@@ -704,6 +774,7 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   return (
     <div className="noirjack-app">
+      <NoirJackResultToaster isMobile={isMobile} />
       <div className="noirjack-felt" />
       <div className="noirjack-content">
         <header className="nj-topbar">
@@ -918,15 +989,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
         </div>
       )}
 
-      {result && (
-        <div className={cn("nj-result", `nj-result--${result.tone}`)} role="status" aria-live="polite">
-          <span className="nj-result__label">{result.message}</span>
-        </div>
-      )}
-
-      <div className="sr-only" aria-live="polite">
-        {result ? `Player ${result.message}` : ""}
-      </div>
     </div>
   );
 };

@@ -952,40 +952,177 @@ body.skin-noirjack .nj-chip[data-chip-motion^="remove"] {
   animation: njChipFade 0.22s ease-out;
 }
 
-body.skin-noirjack .nj-result {
-  position: fixed;
-  top: clamp(80px, 25vh, 160px);
-  left: 50%;
-  transform: translateX(-50%);
-  display: inline-flex;
+body.skin-noirjack .nj-toast-frame {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+body.skin-noirjack .nj-toast-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
-  padding: 12px 22px;
-  border-radius: 999px;
-  border: 1px solid rgba(233, 196, 106, 0.3);
-  background: rgba(10, 18, 24, 0.78);
-  box-shadow: var(--nj-shadow);
-  text-transform: uppercase;
+  gap: clamp(16px, 3vw, 24px);
+  min-width: clamp(320px, 70vw, 480px);
+  width: min(520px, calc(100vw - 32px));
+  padding: clamp(18px, 3vw, 24px);
+  border-radius: 18px;
+  border: 1px solid rgba(233, 196, 106, 0.24);
+  background: rgba(10, 15, 20, 0.7);
+  backdrop-filter: blur(16px) saturate(1.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color: var(--nj-text);
+}
+
+body.skin-noirjack .nj-toast-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 18px;
+  border: 1px solid rgba(233, 196, 106, 0.22);
+  pointer-events: none;
+}
+
+body.skin-noirjack .nj-toast-card__icon {
+  width: clamp(44px, 8vw, 52px);
+  height: clamp(44px, 8vw, 52px);
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: rgba(233, 196, 106, 0.18);
+  color: var(--nj-gold);
+  box-shadow: inset 0 0 0 1px rgba(233, 196, 106, 0.3);
+}
+
+body.skin-noirjack .nj-toast-card__title {
+  margin: 0;
+  font-family: "Cinzel", serif;
+  font-size: clamp(0.95rem, 1.6vw, 1.1rem);
   letter-spacing: 0.28em;
+  text-transform: uppercase;
+}
+
+body.skin-noirjack .nj-toast-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+body.skin-noirjack .nj-toast-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: "Inter", "SF Pro Text", system-ui, -apple-system, sans-serif;
+}
+
+body.skin-noirjack .nj-toast-card__amount {
+  font-size: clamp(1.1rem, 2vw, 1.35rem);
   font-weight: 600;
-  opacity: 0;
-  animation: njResultFade 1.8s ease forwards;
-  z-index: 30;
+  color: var(--nj-text);
+  letter-spacing: 0.04em;
 }
 
-body.skin-noirjack .nj-result--win {
+body.skin-noirjack .nj-toast-card__details {
+  font-size: clamp(0.85rem, 1.4vw, 0.95rem);
+  color: var(--nj-text-muted);
+}
+
+body.skin-noirjack .nj-toast-card__close {
+  width: clamp(36px, 7vw, 42px);
+  height: clamp(36px, 7vw, 42px);
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--nj-text-muted);
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, background 0.18s ease;
+}
+
+body.skin-noirjack .nj-toast-card__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--nj-text);
+}
+
+body.skin-noirjack .nj-toast-card__close:focus-visible {
+  outline: none;
+  border-color: rgba(45, 212, 191, 0.5);
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.28);
+  color: var(--nj-text);
+}
+
+body.skin-noirjack .nj-toast-card--win {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(34, 197, 94, 0.28);
+}
+
+body.skin-noirjack .nj-toast-card--win .nj-toast-card__icon {
+  background: rgba(34, 197, 94, 0.18);
   color: var(--nj-win);
-  border-color: rgba(34, 197, 94, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.45);
 }
 
-body.skin-noirjack .nj-result--lose {
+body.skin-noirjack .nj-toast-card--lose {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(220, 38, 38, 0.24);
+}
+
+body.skin-noirjack .nj-toast-card--lose .nj-toast-card__icon {
+  background: rgba(220, 38, 38, 0.18);
   color: var(--nj-lose);
-  border-color: rgba(220, 38, 38, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(220, 38, 38, 0.45);
 }
 
-body.skin-noirjack .nj-result--push {
-  color: rgba(233, 196, 106, 0.92);
-  border-color: rgba(233, 196, 106, 0.45);
+body.skin-noirjack .nj-toast-card--push {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(209, 213, 219, 0.2);
+}
+
+body.skin-noirjack .nj-toast-card--push .nj-toast-card__icon {
+  background: rgba(209, 213, 219, 0.18);
+  color: var(--nj-text-muted);
+  box-shadow: inset 0 0 0 1px rgba(209, 213, 219, 0.35);
+}
+
+body.skin-noirjack .nj-toast-card--blackjack {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(233, 196, 106, 0.38);
+}
+
+body.skin-noirjack .nj-toast-card--blackjack .nj-toast-card__icon {
+  background: rgba(233, 196, 106, 0.22);
+  color: var(--nj-gold);
+  box-shadow: inset 0 0 0 1px rgba(233, 196, 106, 0.5);
+}
+
+body.skin-noirjack .nj-toast-card--blackjack .nj-toast-card__title {
+  color: var(--nj-gold);
+}
+
+@media (max-width: 520px) {
+  body.skin-noirjack .nj-toast-card {
+    grid-template-columns: minmax(0, auto) 1fr;
+    grid-template-areas:
+      "icon title"
+      "icon text";
+    gap: 16px;
+  }
+
+  body.skin-noirjack .nj-toast-card__icon {
+    grid-area: icon;
+  }
+
+  body.skin-noirjack .nj-toast-card__content {
+    grid-area: title;
+  }
+
+  body.skin-noirjack .nj-toast-card__text {
+    grid-area: text;
+  }
+
+  body.skin-noirjack .nj-toast-card__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+  }
 }
 
 body.skin-noirjack .nj-error {
@@ -1037,10 +1174,6 @@ body.skin-noirjack .nj-insurance__actions {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-body.skin-noirjack .nj-result__label {
-  font-size: 0.85rem;
 }
 
 body.skin-noirjack .nj-sticky-bottom {
@@ -1155,24 +1288,6 @@ body.skin-noirjack .nj-chip-sheet__close:focus-visible {
   }
 }
 
-@keyframes njResultFade {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -12px);
-  }
-  15% {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, 8px);
-  }
-}
-
 @keyframes njPulse {
   0%,
   100% {
@@ -1189,7 +1304,7 @@ body.skin-noirjack .nj-chip-sheet__close:focus-visible {
   }
   body.skin-noirjack .nj-card-wrapper--deal,
   body.skin-noirjack .nj-chip[data-chip-motion],
-  body.skin-noirjack .nj-result {
+  body.skin-noirjack .nj-toast-card {
     animation: none !important;
   }
 }
