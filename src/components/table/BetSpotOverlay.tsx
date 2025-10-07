@@ -10,6 +10,7 @@ import { formatCurrency } from "../../utils/currency";
 import { AnimatedChip } from "../animation/AnimatedChip";
 import { ANIM, REDUCED } from "../../utils/animConstants";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
+import { playSound } from "../../audio/soundscape";
 
 interface BetSpotOverlayProps {
   game: GameState;
@@ -32,7 +33,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
   onLeave,
   onAddChip,
   onRemoveChipValue,
-  onRemoveTopChip
+  onRemoveTopChip,
 }) => {
   const isBettingPhase = game.phase === "betting";
   const seats = filterSeatsForMode(game.seats);
@@ -45,7 +46,10 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
     if (!seat.occupied) {
       onSit(seat.index);
     }
-    const remainingBankroll = Math.max(0, Math.floor(game.bankroll - (totalBets - seat.baseBet)));
+    const remainingBankroll = Math.max(
+      0,
+      Math.floor(game.bankroll - (totalBets - seat.baseBet)),
+    );
     const nextBet = seat.baseBet + activeChip;
     if (remainingBankroll <= 0 || nextBet > game.rules.maxBet) {
       return;
@@ -53,6 +57,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
     const denom = Math.min(activeChip, remainingBankroll);
     if (denom > 0) {
       onAddChip(seat.index, denom);
+      playSound("chipStack");
     }
   };
 
@@ -65,8 +70,10 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
     const value = Number(target.dataset.chipValue);
     if (!Number.isNaN(value)) {
       onRemoveChipValue(seat.index, value);
+      playSound("chipStack");
     } else {
       onRemoveTopChip(seat.index);
+      playSound("chipStack");
     }
   };
 
@@ -86,8 +93,16 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
         const isActive = game.activeSeatIndex === seat.index;
 
         return (
-          <div key={seat.index} className="absolute" style={{ left: x, top: y }} data-testid={`seat-${seat.index}`}>
-            <div className="relative -translate-x-1/2 -translate-y-1/2" style={{ width: circleSize, height: circleSize }}>
+          <div
+            key={seat.index}
+            className="absolute"
+            style={{ left: x, top: y }}
+            data-testid={`seat-${seat.index}`}
+          >
+            <div
+              className="relative -translate-x-1/2 -translate-y-1/2"
+              style={{ width: circleSize, height: circleSize }}
+            >
               <button
                 type="button"
                 data-testid={`bet-spot-${seat.index}`}
@@ -96,14 +111,18 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                 onClick={() => handleAddChip(seat)}
                 onContextMenu={(event) => handleContextMenu(event, seat)}
                 disabled={!isBettingPhase}
-                aria-label={isSingleSeatMode ? "Your bet spot" : `Bet spot for seat ${seat.index + 1}`}
+                aria-label={
+                  isSingleSeatMode
+                    ? "Your bet spot"
+                    : `Bet spot for seat ${seat.index + 1}`
+                }
               />
               <motion.div
                 aria-hidden
                 animate={{ opacity: isActive ? 1 : 0 }}
                 transition={{
                   ...ANIM.fade,
-                  duration: REDUCED ? 0 : ANIM.fade.duration
+                  duration: REDUCED ? 0 : ANIM.fade.duration,
                 }}
                 style={{
                   position: "absolute",
@@ -112,9 +131,10 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                   width: circleSize,
                   height: circleSize,
                   borderRadius: "9999px",
-                  boxShadow: "0 0 0 2px rgba(200,162,74,0.6), 0 0 18px rgba(200,162,74,0.35)",
+                  boxShadow:
+                    "0 0 0 2px rgba(200,162,74,0.6), 0 0 18px rgba(200,162,74,0.35)",
                   pointerEvents: "none",
-                  zIndex: 20
+                  zIndex: 20,
                 }}
               />
               {showSit && (
@@ -153,7 +173,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                       style={{
                         left: "50%",
                         top: `calc(50% - ${index * 6}px)`,
-                        transform: "translate(-50%, -50%)"
+                        transform: "translate(-50%, -50%)",
                       }}
                     >
                       <button
@@ -164,10 +184,15 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                           event.preventDefault();
                           if (isBettingPhase) {
                             onRemoveChipValue(seat.index, chip);
+                            playSound("chipStack");
                           }
                         }}
                       >
-                        <ChipSVG value={chip} size={40} shadow={stackIndex === chipStack.length - 1} />
+                        <ChipSVG
+                          value={chip}
+                          size={40}
+                          shadow={stackIndex === chipStack.length - 1}
+                        />
                       </button>
                     </AnimatedChip>
                   );
@@ -185,7 +210,10 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
                 <span
                   data-testid={`seat-${seat.index}-bet`}
                   className="rounded-full px-3 py-1 text-xs font-semibold tracking-[0.3em]"
-                  style={{ backgroundColor: "rgba(12, 46, 36, 0.8)", color: palette.line }}
+                  style={{
+                    backgroundColor: "rgba(12, 46, 36, 0.8)",
+                    color: palette.line,
+                  }}
                 >
                   {formatCurrency(seat.baseBet)}
                 </span>

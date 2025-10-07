@@ -12,6 +12,7 @@ import { CoachFeedbackPanel } from "../hud/CoachFeedbackPanel";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
 import { ResultBanner, type ResultKind } from "./ResultBanner";
 import type { CoachMode } from "../../store/useGameStore";
+import { playSound } from "../../audio/soundscape";
 
 const MIN_AMOUNT = 0.005;
 
@@ -20,17 +21,20 @@ const BASE_H = 780;
 const HUD_HEIGHT = 120;
 const STAGE_PADDING = 16;
 
-const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(Math.max(value, min), max);
 
 interface StageMetrics {
   scale: number;
   containerWidth: number;
 }
 
-const useStageMetrics = (containerRef: React.RefObject<HTMLDivElement>): StageMetrics => {
+const useStageMetrics = (
+  containerRef: React.RefObject<HTMLDivElement>,
+): StageMetrics => {
   const [metrics, setMetrics] = React.useState<StageMetrics>({
     scale: 1,
-    containerWidth: BASE_W
+    containerWidth: BASE_W,
   });
 
   React.useLayoutEffect(() => {
@@ -45,7 +49,7 @@ const useStageMetrics = (containerRef: React.RefObject<HTMLDivElement>): StageMe
       const nextScale = Math.min(width / BASE_W, availableHeight / BASE_H);
       setMetrics({
         scale: clamp(Number.isFinite(nextScale) ? nextScale : 1, 0.55, 2),
-        containerWidth: width
+        containerWidth: width,
       });
     });
 
@@ -65,6 +69,14 @@ type BannerState = {
   phase: BannerPhase;
 };
 
+const RESULT_SOUNDS: Record<ResultKind, Parameters<typeof playSound>[0]> = {
+  win: "roundWin",
+  lose: "roundLose",
+  push: "roundPush",
+  blackjack: "roundBlackjack",
+  insurance: "roundInsurance",
+};
+
 type OutcomeSummary = {
   net: number;
   baseNet: number;
@@ -74,7 +86,10 @@ type OutcomeSummary = {
 
 const roundToCents = (value: number): number => Math.round(value * 100) / 100;
 
-const calculateOutcomeForSeats = (game: GameState, seats: Seat[]): OutcomeSummary | null => {
+const calculateOutcomeForSeats = (
+  game: GameState,
+  seats: Seat[],
+): OutcomeSummary | null => {
   const dealerHand = game.dealer.hand;
   const dealerBlackjack = dealerHand.isBlackjack;
   const dealerBust = isBust(dealerHand);
@@ -87,7 +102,9 @@ const calculateOutcomeForSeats = (game: GameState, seats: Seat[]): OutcomeSummar
   let hasBlackjackWin = false;
 
   const relevantSeats = seats.filter((seat) =>
-    seat.hands.some((hand) => (hand.bet ?? 0) > 0 || (hand.insuranceBet ?? 0) > 0)
+    seat.hands.some(
+      (hand) => (hand.bet ?? 0) > 0 || (hand.insuranceBet ?? 0) > 0,
+    ),
   );
 
   if (relevantSeats.length === 0) {
@@ -211,7 +228,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   onDeal,
   onFinishInsurance,
   onPlayDealer,
-  onNextRound
+  onNextRound,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const { scale, containerWidth } = useStageMetrics(containerRef);
@@ -219,14 +236,20 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const scaledHeight = BASE_H * scale;
   const hudWidth = Math.max(scaledWidth, containerWidth - STAGE_PADDING * 2);
 
-  const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
+  const seatsForMode = React.useMemo(
+    () => filterSeatsForMode(game.seats),
+    [game.seats],
+  );
 
-  const [bannerState, setBannerState] = React.useState<BannerState | null>(null);
+  const [bannerState, setBannerState] = React.useState<BannerState | null>(
+    null,
+  );
   const exitTimerRef = React.useRef<number | null>(null);
   const removeTimerRef = React.useRef<number | null>(null);
   const previousRoundRef = React.useRef(game.roundCount);
 
-  const [coachFeedback, setCoachFeedback] = React.useState<CoachFeedback | null>(null);
+  const [coachFeedback, setCoachFeedback] =
+    React.useState<CoachFeedback | null>(null);
 
   const clearCoachFeedback = React.useCallback(() => {
     setCoachFeedback(null);
@@ -237,7 +260,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
       clearCoachFeedback();
       setCoachFeedback(feedback);
     },
-    [clearCoachFeedback]
+    [clearCoachFeedback],
   );
 
   React.useEffect(() => {
@@ -267,15 +290,18 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
       clearBannerTimers();
       const key = Date.now();
       setBannerState({ key, phase: "enter", ...next });
+      playSound(RESULT_SOUNDS[next.kind]);
 
       exitTimerRef.current = window.setTimeout(() => {
-        setBannerState((current) => (current ? { ...current, phase: "exit" } : null));
+        setBannerState((current) =>
+          current ? { ...current, phase: "exit" } : null,
+        );
         removeTimerRef.current = window.setTimeout(() => {
           setBannerState(null);
         }, 320);
       }, 3000);
     },
-    [clearBannerTimers]
+    [clearBannerTimers],
   );
 
   React.useEffect(() => () => clearBannerTimers(), [clearBannerTimers]);
@@ -305,9 +331,9 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
             ? ""
             : isSingleSeatMode
               ? "You"
-              : anchor.label
+              : anchor.label,
       })),
-    [game.activeSeatIndex, seatsForMode]
+    [game.activeSeatIndex, seatsForMode],
   );
 
   return (
@@ -321,7 +347,10 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
         className="relative flex w-full flex-1 items-center justify-center"
         style={{ paddingTop: STAGE_PADDING, paddingBottom: STAGE_PADDING }}
       >
-        <div className="relative" style={{ width: scaledWidth, height: scaledHeight }}>
+        <div
+          className="relative"
+          style={{ width: scaledWidth, height: scaledHeight }}
+        >
           <div
             data-testid="table-stage"
             className="relative"
@@ -330,7 +359,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               height: BASE_H,
               left: "50%",
               transform: `translateX(-50%) scale(${scale})`,
-              transformOrigin: "top center"
+              transformOrigin: "top center",
             }}
           >
             <div className="absolute inset-0 z-10">
@@ -373,7 +402,11 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
           style={{ width: hudWidth }}
         >
           <div className="flex flex-1 justify-start md:max-w-[50%]">
-            <ChipTray activeChip={activeChip} onSelect={onSelectChip} disabled={game.phase !== "betting"} />
+            <ChipTray
+              activeChip={activeChip}
+              onSelect={onSelectChip}
+              disabled={game.phase !== "betting"}
+            />
           </div>
           <div className="flex flex-1 justify-end">
             <RoundActionBar

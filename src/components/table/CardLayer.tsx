@@ -12,6 +12,7 @@ import { DEAL_STAGGER } from "../../utils/animConstants";
 import { filterSeatsForMode } from "../../ui/config";
 import type { CoachMode } from "../../store/useGameStore";
 import type { CoachFeedback } from "../hud/RoundActionBar";
+import { playSound } from "../../audio/soundscape";
 
 interface CardLayerProps {
   game: GameState;
@@ -43,7 +44,10 @@ const CARD_GAP = 12;
 const DEALER_GAP = 16;
 const CARD_STEP = CARD_WIDTH + CARD_GAP;
 
-const normalizeVector = (vector: { x: number; y: number }): { x: number; y: number } => {
+const normalizeVector = (vector: {
+  x: number;
+  y: number;
+}): { x: number; y: number } => {
   const magnitude = Math.hypot(vector.x, vector.y);
   if (!Number.isFinite(magnitude) || magnitude === 0) {
     return { x: 0, y: -1 };
@@ -82,7 +86,10 @@ const renderHandBadges = (hand: Hand): React.ReactNode => {
       style={{ color: palette.subtleText }}
     >
       {badges.map((badge) => (
-        <span key={badge} className="rounded-full bg-[#123428]/75 px-2 py-1 font-semibold">
+        <span
+          key={badge}
+          className="rounded-full bg-[#123428]/75 px-2 py-1 font-semibold"
+        >
           {badge}
         </span>
       ))}
@@ -97,10 +104,15 @@ const renderInsurancePrompt = (
   onInsurance: CardLayerProps["onInsurance"],
   onDeclineInsurance: CardLayerProps["onDeclineInsurance"],
   coachMode: CoachMode,
-  onCoachFeedback: CardLayerProps["onCoachFeedback"]
+  onCoachFeedback: CardLayerProps["onCoachFeedback"],
 ): React.ReactNode => {
   const alreadyResolved = hand.insuranceBet !== undefined;
-  if (!seat.occupied || game.phase !== "insurance" || alreadyResolved || hand.isResolved) {
+  if (
+    !seat.occupied ||
+    game.phase !== "insurance" ||
+    alreadyResolved ||
+    hand.isResolved
+  ) {
     return null;
   }
   const maxInsurance = Math.floor(hand.bet / 2);
@@ -134,7 +146,10 @@ const renderInsurancePrompt = (
       key={hand.id}
       className="pointer-events-auto flex w-max min-w-[180px] flex-col items-center gap-2 rounded-lg border border-[#c8a24a]/60 bg-[#0d3024]/95 px-3 py-2 text-xs shadow-lg"
     >
-      <p className="font-semibold tracking-wide" style={{ color: palette.gold }}>
+      <p
+        className="font-semibold tracking-wide"
+        style={{ color: palette.gold }}
+      >
         Insurance?
       </p>
       <div className="flex gap-2">
@@ -170,33 +185,41 @@ interface MutableCluster extends SeatClusterLayout {
 const resolveSeatLayouts = (
   seats: Seat[],
   dimensions: { width: number; height: number },
-  clusterSizes: Record<number, SeatClusterSize>
+  clusterSizes: Record<number, SeatClusterSize>,
 ): SeatClusterLayout[] => {
   const scaleX = dimensions.width / defaultTableAnchors.viewBox.width;
   const scaleY = dimensions.height / defaultTableAnchors.viewBox.height;
   const averageScale = (scaleX + scaleY) / 2;
   const seatRadiusPx = defaultTableAnchors.seatRadius * scaleX;
-  const center = toPixels(defaultTableAnchors.seatArc.cx, defaultTableAnchors.seatArc.cy, dimensions);
+  const center = toPixels(
+    defaultTableAnchors.seatArc.cx,
+    defaultTableAnchors.seatArc.cy,
+    dimensions,
+  );
   const fallbackSize: SeatClusterSize = {
     width: 220 * scaleX,
-    height: 220 * scaleY
+    height: 220 * scaleY,
   };
   const shiftLimit = SHIFT_LIMIT_BASE * averageScale;
   const boundaryPadding = 40 * averageScale;
   const clusters: MutableCluster[] = seats
-    .filter((seat) => seat.occupied || seat.baseBet > 0 || seat.hands.length > 0)
+    .filter(
+      (seat) => seat.occupied || seat.baseBet > 0 || seat.hands.length > 0,
+    )
     .map((seat) => {
       const anchor = defaultTableAnchors.seats[seat.index];
       const seatPosition = toPixels(anchor.x, anchor.y, dimensions);
       const direction = normalizeVector({
         x: center.x - seatPosition.x,
-        y: center.y - seatPosition.y
+        y: center.y - seatPosition.y,
       });
       const orientation: "up" | "down" = direction.y < 0 ? "up" : "down";
-      const offset = seatRadiusPx + (orientation === "up" ? 120 * averageScale : 96 * averageScale);
+      const offset =
+        seatRadiusPx +
+        (orientation === "up" ? 120 * averageScale : 96 * averageScale);
       const basePosition = {
         x: seatPosition.x + direction.x * offset,
-        y: seatPosition.y + direction.y * offset
+        y: seatPosition.y + direction.y * offset,
       };
       const size = clusterSizes[seat.index] ?? fallbackSize;
       const minBoundary = size.width / 2 + boundaryPadding;
@@ -209,7 +232,7 @@ const resolveSeatLayouts = (
         size,
         basePosition,
         minX: Math.max(basePosition.x - shiftLimit, minBoundary),
-        maxX: Math.min(basePosition.x + shiftLimit, maxBoundary)
+        maxX: Math.min(basePosition.x + shiftLimit, maxBoundary),
       };
     });
 
@@ -230,7 +253,11 @@ const resolveSeatLayouts = (
     for (let index = 1; index < group.length; index += 1) {
       const previous = group[index - 1];
       const current = group[index];
-      const minX = previous.position.x + previous.size.width / 2 + current.size.width / 2 + gap;
+      const minX =
+        previous.position.x +
+        previous.size.width / 2 +
+        current.size.width / 2 +
+        gap;
       if (current.position.x < minX) {
         current.position.x = Math.max(minX, current.minX);
       }
@@ -238,7 +265,8 @@ const resolveSeatLayouts = (
     for (let index = group.length - 2; index >= 0; index -= 1) {
       const next = group[index + 1];
       const current = group[index];
-      const maxX = next.position.x - next.size.width / 2 - current.size.width / 2 - gap;
+      const maxX =
+        next.position.x - next.size.width / 2 - current.size.width / 2 - gap;
       if (current.position.x > maxX) {
         current.position.x = Math.min(maxX, current.maxX);
       }
@@ -246,13 +274,21 @@ const resolveSeatLayouts = (
     for (let index = 1; index < group.length; index += 1) {
       const previous = group[index - 1];
       const current = group[index];
-      const minX = previous.position.x + previous.size.width / 2 + current.size.width / 2 + gap;
+      const minX =
+        previous.position.x +
+        previous.size.width / 2 +
+        current.size.width / 2 +
+        gap;
       if (current.position.x < minX) {
         current.position.x = minX;
       }
     }
     group.forEach((cluster) => {
-      cluster.position.x = clamp(cluster.position.x, cluster.minX, cluster.maxX);
+      cluster.position.x = clamp(
+        cluster.position.x,
+        cluster.minX,
+        cluster.maxX,
+      );
     });
   });
 
@@ -261,7 +297,7 @@ const resolveSeatLayouts = (
     orientation,
     direction,
     position,
-    size
+    size,
   }));
 };
 
@@ -271,16 +307,21 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   onInsurance,
   onDeclineInsurance,
   coachMode,
-  onCoachFeedback
+  onCoachFeedback,
 }) => {
   const clusterRefs = React.useRef(new Map<number, HTMLDivElement | null>());
-  const clusterRefCallbacks = React.useRef(new Map<number, (node: HTMLDivElement | null) => void>());
-  const [clusterSizes, setClusterSizes] = React.useState<Record<number, SeatClusterSize>>({});
+  const clusterRefCallbacks = React.useRef(
+    new Map<number, (node: HTMLDivElement | null) => void>(),
+  );
+  const [clusterSizes, setClusterSizes] = React.useState<
+    Record<number, SeatClusterSize>
+  >({});
 
-  const getClusterRef = React.useCallback(
-    (seatIndex: number) => {
-      if (!clusterRefCallbacks.current.has(seatIndex)) {
-        clusterRefCallbacks.current.set(seatIndex, (node: HTMLDivElement | null) => {
+  const getClusterRef = React.useCallback((seatIndex: number) => {
+    if (!clusterRefCallbacks.current.has(seatIndex)) {
+      clusterRefCallbacks.current.set(
+        seatIndex,
+        (node: HTMLDivElement | null) => {
           if (node) {
             clusterRefs.current.set(seatIndex, node);
             const rect = node.getBoundingClientRect();
@@ -307,29 +348,37 @@ export const CardLayer: React.FC<CardLayerProps> = ({
               return next;
             });
           }
-        });
-      }
-      return clusterRefCallbacks.current.get(seatIndex)!;
-    },
-    []
-  );
+        },
+      );
+    }
+    return clusterRefCallbacks.current.get(seatIndex)!;
+  }, []);
 
-  const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
+  const seatsForMode = React.useMemo(
+    () => filterSeatsForMode(game.seats),
+    [game.seats],
+  );
 
   const seatLayouts = React.useMemo(
     () => resolveSeatLayouts(seatsForMode, dimensions, clusterSizes),
-    [seatsForMode, dimensions, clusterSizes]
+    [seatsForMode, dimensions, clusterSizes],
   );
 
-  const anchorPoints = React.useMemo(() => getTableAnchorPoints(dimensions), [dimensions]);
+  const anchorPoints = React.useMemo(
+    () => getTableAnchorPoints(dimensions),
+    [dimensions],
+  );
   const shoeOrigin = React.useMemo(
-    () => ({ x: anchorPoints.shoe.x - CARD_WIDTH / 2, y: anchorPoints.shoe.y - CARD_HEIGHT / 2 }),
-    [anchorPoints]
+    () => ({
+      x: anchorPoints.shoe.x - CARD_WIDTH / 2,
+      y: anchorPoints.shoe.y - CARD_HEIGHT / 2,
+    }),
+    [anchorPoints],
   );
 
   const layoutSignature = React.useMemo(
     () => seatLayouts.map((layout) => layout.seat.index).join("-"),
-    [seatLayouts]
+    [seatLayouts],
   );
 
   React.useLayoutEffect(() => {
@@ -345,7 +394,11 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         const { width, height } = entry.contentRect;
         setClusterSizes((previous) => {
           const existing = previous[seatIndex];
-          if (existing && Math.abs(existing.width - width) < 0.5 && Math.abs(existing.height - height) < 0.5) {
+          if (
+            existing &&
+            Math.abs(existing.width - width) < 0.5 &&
+            Math.abs(existing.height - height) < 0.5
+          ) {
             return previous;
           }
           return { ...previous, [seatIndex]: { width, height } };
@@ -360,17 +413,30 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   }, [layoutSignature]);
 
   const revealHole =
-    game.phase === "dealerPlay" || game.phase === "settlement" || game.dealer.hand.isBlackjack;
+    game.phase === "dealerPlay" ||
+    game.phase === "settlement" ||
+    game.dealer.hand.isBlackjack;
   const dealerCards = game.dealer.hand.cards;
+  const wasRevealingRef = React.useRef(revealHole);
+  React.useEffect(() => {
+    if (!wasRevealingRef.current && revealHole && dealerCards.length > 1) {
+      playSound("cardFlip");
+    }
+    wasRevealingRef.current = revealHole;
+  }, [revealHole, dealerCards.length]);
   const dealerAnchor = defaultTableAnchors.dealerArea;
   const dealerPosition = toPixels(
     dealerAnchor.x + dealerAnchor.width / 2,
     dealerAnchor.y + dealerAnchor.height / 2,
-    dimensions
+    dimensions,
   );
   const dealerBoxSize = {
-    width: (dealerAnchor.width / defaultTableAnchors.viewBox.width) * dimensions.width,
-    height: (dealerAnchor.height / defaultTableAnchors.viewBox.height) * dimensions.height
+    width:
+      (dealerAnchor.width / defaultTableAnchors.viewBox.width) *
+      dimensions.width,
+    height:
+      (dealerAnchor.height / defaultTableAnchors.viewBox.height) *
+      dimensions.height,
   };
 
   const dealerTotals = getHandTotals(game.dealer.hand);
@@ -378,7 +444,8 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   let dealerPlaceholderWidth = CARD_WIDTH;
   const dealerCardCount = dealerCards.length;
   if (dealerCardCount > 0) {
-    const dealerWidth = CARD_WIDTH + (dealerCardCount - 1) * (CARD_WIDTH + DEALER_GAP);
+    const dealerWidth =
+      CARD_WIDTH + (dealerCardCount - 1) * (CARD_WIDTH + DEALER_GAP);
     dealerPlaceholderWidth = dealerWidth;
     const dealerStartX = dealerPosition.x - dealerWidth / 2;
     const dealerTop = dealerPosition.y - dealerBoxSize.height / 2 + 8;
@@ -407,13 +474,16 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           z={index}
         >
           {content}
-        </AnimatedCard>
+        </AnimatedCard>,
       );
     });
   }
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-30 text-[13px]" style={{ color: palette.text }}>
+    <div
+      className="pointer-events-none absolute inset-0 z-30 text-[13px]"
+      style={{ color: palette.text }}
+    >
       <div className="pointer-events-none absolute inset-0">{cardElements}</div>
       <div
         className="dealer-area"
@@ -422,10 +492,14 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           left: dealerPosition.x,
           top: dealerPosition.y,
           width: dealerBoxSize.width,
-          transform: "translate(-50%, -50%)"
+          transform: "translate(-50%, -50%)",
         }}
       >
-        <div aria-hidden className="dealer-area__cards" style={{ width: dealerPlaceholderWidth }}>
+        <div
+          aria-hidden
+          className="dealer-area__cards"
+          style={{ width: dealerPlaceholderWidth }}
+        >
           <div className="dealer-area__placeholder" />
         </div>
         <div className="dealer-area__label rounded-full bg-[#0d3124]/80 px-4 py-1 text-xs uppercase tracking-[0.25em]">
@@ -478,7 +552,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
                 z={handIndex * 10 + cardIndex}
               >
                 <PlayingCard rank={card.rank} suit={card.suit} />
-              </AnimatedCard>
+              </AnimatedCard>,
             );
           });
 
@@ -489,7 +563,10 @@ export const CardLayer: React.FC<CardLayerProps> = ({
                 className="player-hand__cards"
                 style={{ transform: `translateX(${handOffsetX}px)` }}
               >
-                <div className="player-hand__placeholder" style={{ width: cardRowWidth }} />
+                <div
+                  className="player-hand__placeholder"
+                  style={{ width: cardRowWidth }}
+                />
               </div>
               <div className="player-hand__meta">
                 <div
@@ -500,11 +577,17 @@ export const CardLayer: React.FC<CardLayerProps> = ({
                     ? `Total ${handTotals.hard} / ${handTotals.soft}`
                     : `Total ${handTotals.hard}`}
                 </div>
-                <div className="text-[13px] tracking-[0.25em]" style={{ color: palette.subtleText }}>
+                <div
+                  className="text-[13px] tracking-[0.25em]"
+                  style={{ color: palette.subtleText }}
+                >
                   Bet {formatCurrency(hand.bet)}
                 </div>
                 {hand.insuranceBet !== undefined && (
-                  <div className="text-[12px] tracking-[0.25em]" style={{ color: palette.subtleText }}>
+                  <div
+                    className="text-[12px] tracking-[0.25em]"
+                    style={{ color: palette.subtleText }}
+                  >
                     {hand.insuranceBet > 0
                       ? `Insurance ${formatCurrency(hand.insuranceBet)}`
                       : "Insurance declined"}
@@ -518,13 +601,23 @@ export const CardLayer: React.FC<CardLayerProps> = ({
 
         const promptElements = hands
           .map((hand) =>
-            renderInsurancePrompt(seat, hand, game, onInsurance, onDeclineInsurance, coachMode, onCoachFeedback)
+            renderInsurancePrompt(
+              seat,
+              hand,
+              game,
+              onInsurance,
+              onDeclineInsurance,
+              coachMode,
+              onCoachFeedback,
+            ),
           )
           .filter(Boolean) as React.ReactNode[];
 
         const promptStack =
           promptElements.length > 0 ? (
-            <div className="pointer-events-auto flex flex-col items-center gap-2">{promptElements}</div>
+            <div className="pointer-events-auto flex flex-col items-center gap-2">
+              {promptElements}
+            </div>
           ) : null;
 
         const clusterRef = getClusterRef(seat.index);
@@ -544,7 +637,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
               style={{
                 boxShadow,
                 backgroundColor: "rgba(4, 24, 18, 0.65)",
-                border: "1px solid rgba(21, 74, 58, 0.35)"
+                border: "1px solid rgba(21, 74, 58, 0.35)",
               }}
             >
               {orientation === "up" && promptStack}
