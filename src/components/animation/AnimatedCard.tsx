@@ -1,5 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { audioService } from "../../services/AudioService";
 import { ANIM, REDUCED } from "../../utils/animConstants";
 
 type AnimatedCardProps = {
@@ -22,6 +23,16 @@ export function AnimatedCard({
   children
 }: AnimatedCardProps): React.ReactElement {
   const start = from ?? { x: 0, y: 0 };
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const delayMs = (REDUCED ? 0 : delay) * 1000;
+    const timer = window.setTimeout(() => {
+      audioService.playCardDeal();
+    }, delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delay]);
   return (
     <motion.div
       key={id}

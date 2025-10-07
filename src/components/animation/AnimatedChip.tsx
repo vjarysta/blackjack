@@ -1,5 +1,6 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { audioService } from "../../services/AudioService";
 import { ANIM, REDUCED } from "../../utils/animConstants";
 
 interface AnimatedChipProps {
@@ -10,6 +11,9 @@ interface AnimatedChipProps {
 
 export function AnimatedChip({ id, children, style }: AnimatedChipProps): React.ReactElement {
   const duration = REDUCED ? 0 : ANIM.chip.duration;
+  React.useEffect(() => {
+    audioService.playChip();
+  }, []);
   return (
     <AnimatePresence mode="popLayout">
       <motion.div

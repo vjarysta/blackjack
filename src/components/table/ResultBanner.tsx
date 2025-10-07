@@ -1,4 +1,5 @@
 import React from "react";
+import { audioService } from "../../services/AudioService";
 import { cn } from "../../utils/cn";
 import { formatCurrency } from "../../utils/currency";
 
@@ -28,6 +29,12 @@ const getLabel = (kind: ResultKind): string => {
 export const ResultBanner: React.FC<ResultBannerProps> = ({ kind, amount, phase }) => {
   const label = getLabel(kind);
   const showAmount = typeof amount === "number" && Number.isFinite(amount) && amount > 0.004;
+  React.useEffect(() => {
+    if (phase === "exit") {
+      return;
+    }
+    audioService.playResult(kind);
+  }, [kind, phase]);
   return (
     <div
       className={cn("result-banner", `is-${kind}`, phase === "enter" && "result-enter", phase === "exit" && "result-exit")}
