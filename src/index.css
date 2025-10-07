@@ -5,13 +5,15 @@
 @tailwind utilities;
 
 :root {
-  font-family: theme('fontFamily.sans');
+  font-family: theme("fontFamily.sans");
   --card-w: clamp(72px, 8.5vw, 110px);
   --card-h: calc(var(--card-w) * 1.43);
   --card-stack-overlap: calc(var(--card-h) * 0.28);
   --stack-shadow-clearance: clamp(10px, calc(var(--card-h) * 0.12), 22px);
   --label-stack-gap: clamp(12px, calc(var(--card-h) * 0.08), 20px);
-  --dealer-label-offset: calc(var(--stack-shadow-clearance) + var(--label-stack-gap));
+  --dealer-label-offset: calc(
+    var(--stack-shadow-clearance) + var(--label-stack-gap)
+  );
   --player-meta-gap: clamp(12px, calc(var(--card-h) * 0.09), 24px);
   --player-meta-minh: clamp(28px, calc(var(--card-h) * 0.2), 44px);
   --result-win: #2ddf80;
@@ -113,9 +115,14 @@ button:disabled {
   place-items: center;
   border: none;
   border-radius: 999px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, outline-color 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    outline-color 0.12s ease;
   outline: 1px solid rgba(255, 255, 255, 0.08);
   background: none;
   padding: 0;
@@ -151,7 +158,9 @@ button:disabled {
 .chip.is-selected {
   outline: 2px solid #d8b64c;
   outline-offset: 2px;
-  box-shadow: 0 0 0 3px rgba(216, 182, 76, 0.22), 0 10px 24px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 0 3px rgba(216, 182, 76, 0.22),
+    0 10px 24px rgba(0, 0, 0, 0.45);
 }
 
 .chip.is-disabled {
@@ -262,7 +271,9 @@ button:disabled {
 }
 
 [data-coach="best"] {
-  box-shadow: 0 0 0 2px rgba(200, 162, 74, 0.55), 0 0 18px rgba(200, 162, 74, 0.35);
+  box-shadow:
+    0 0 0 2px rgba(200, 162, 74, 0.55),
+    0 0 18px rgba(200, 162, 74, 0.35);
   position: relative;
 }
 
@@ -272,7 +283,11 @@ button:disabled {
   inset: -4px;
   border-radius: 12px;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(200, 162, 74, 0.15), transparent 70%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(200, 162, 74, 0.15),
+    transparent 70%
+  );
   animation: coachPulse 1.8s ease-in-out infinite;
 }
 
@@ -293,9 +308,24 @@ button:disabled {
 }
 
 body.skin-noirjack {
-  font-family: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: radial-gradient(circle at 20% 20%, rgba(45, 212, 191, 0.06), transparent 55%),
-    radial-gradient(circle at 80% 80%, rgba(233, 196, 106, 0.08), transparent 60%),
+  font-family:
+    "Inter",
+    "SF Pro Text",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(45, 212, 191, 0.06),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 80% 80%,
+      rgba(233, 196, 106, 0.08),
+      transparent 60%
+    ),
     linear-gradient(180deg, rgba(6, 78, 59, 0.95), rgba(3, 24, 18, 0.98));
   color: var(--nj-text);
   font-size: 18px;
@@ -326,8 +356,17 @@ body.skin-noirjack .noirjack-app {
 body.skin-noirjack .noirjack-felt {
   position: fixed;
   inset: 0;
-  background: radial-gradient(circle at 25% 20%, rgba(45, 212, 191, 0.08), transparent 55%),
-    radial-gradient(circle at 70% 80%, rgba(233, 196, 106, 0.08), transparent 60%),
+  background:
+    radial-gradient(
+      circle at 25% 20%,
+      rgba(45, 212, 191, 0.08),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 70% 80%,
+      rgba(233, 196, 106, 0.08),
+      transparent 60%
+    ),
     linear-gradient(180deg, rgba(6, 78, 59, 0.96), rgba(2, 17, 12, 0.98));
   pointer-events: none;
   z-index: 0;
@@ -381,9 +420,12 @@ body.skin-noirjack .nj-topbar {
 }
 
 body.skin-noirjack .nj-logo {
-  font-family: "Cinzel", "Times New Roman", serif;
-  letter-spacing: 0.32em;
-  font-size: clamp(1.1rem, 5vw, 1.6rem);
+  display: block;
+  height: 90px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 body.skin-noirjack .nj-topbar__brand {
@@ -634,7 +676,11 @@ body.skin-noirjack .nj-controls {
   flex-direction: column;
   gap: clamp(16px, 3vw, 28px);
   padding: clamp(16px, 4vw, 32px);
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(4, 10, 10, 0.65) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(4, 10, 10, 0.65) 100%
+  );
 }
 
 @media (max-height: 720px) {
@@ -730,8 +776,13 @@ body.skin-noirjack .nj-chip-trigger {
 
 body.skin-noirjack .nj-chip {
   outline: 1px solid rgba(233, 196, 106, 0.45);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45), inset 0 2px 12px rgba(0, 0, 0, 0.35);
-  transition: transform 0.16s ease, box-shadow 0.16s ease, outline-color 0.16s ease;
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.45),
+    inset 0 2px 12px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    outline-color 0.16s ease;
 }
 
 body.skin-noirjack .nj-chip:hover:not(.is-disabled) {
@@ -741,7 +792,9 @@ body.skin-noirjack .nj-chip:hover:not(.is-disabled) {
 
 body.skin-noirjack .nj-chip.is-selected {
   outline: 2px solid rgba(233, 196, 106, 0.85);
-  box-shadow: 0 0 0 3px rgba(233, 196, 106, 0.32), 0 18px 32px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    0 0 0 3px rgba(233, 196, 106, 0.32),
+    0 18px 32px rgba(0, 0, 0, 0.55);
 }
 
 body.skin-noirjack .nj-chip .chip-value {
@@ -789,7 +842,10 @@ body.skin-noirjack .nj-btn {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-weight: 600;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease,
+    background 0.12s ease;
   min-height: 48px;
 }
 
@@ -941,7 +997,11 @@ body.skin-noirjack .nj-card__pip {
 
 body.skin-noirjack .nj-card__back {
   transform: rotateY(180deg);
-  background: linear-gradient(135deg, rgba(4, 11, 16, 0.95), rgba(8, 18, 24, 0.95));
+  background: linear-gradient(
+    135deg,
+    rgba(4, 11, 16, 0.95),
+    rgba(8, 18, 24, 0.95)
+  );
   border: 1px solid rgba(233, 196, 106, 0.45);
   overflow: hidden;
 }
@@ -956,7 +1016,8 @@ body.skin-noirjack .nj-card__back-border {
 body.skin-noirjack .nj-card__back-pattern {
   position: absolute;
   inset: 0;
-  background-image: repeating-linear-gradient(
+  background-image:
+    repeating-linear-gradient(
       45deg,
       rgba(233, 196, 106, 0.1) 0,
       rgba(233, 196, 106, 0.1) 12px,
@@ -1079,7 +1140,9 @@ body.skin-noirjack .nj-sticky-bottom {
 }
 
 body.skin-noirjack [data-coach="best"] {
-  box-shadow: 0 0 0 2px rgba(233, 196, 106, 0.55), 0 0 18px rgba(233, 196, 106, 0.35);
+  box-shadow:
+    0 0 0 2px rgba(233, 196, 106, 0.55),
+    0 0 18px rgba(233, 196, 106, 0.35);
   position: relative;
 }
 
@@ -1089,7 +1152,11 @@ body.skin-noirjack [data-coach="best"]::after {
   inset: -4px;
   border-radius: inherit;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(233, 196, 106, 0.12), transparent 70%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(233, 196, 106, 0.12),
+    transparent 70%
+  );
   animation: njPulse 1.8s ease-in-out infinite;
 }
 

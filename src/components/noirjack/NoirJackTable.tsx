@@ -13,6 +13,7 @@ import { cn } from "../../utils/cn";
 import { bestTotal } from "../../engine/totals";
 import { audioService } from "../../services/AudioService";
 import { NoirSoundControls } from "./NoirSoundControls";
+import logoImage from "../../assets/images/logo.png";
 
 interface NoirJackTableProps {
   game: GameState;
@@ -814,9 +815,7 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       <div className="noirjack-content">
         <header className="nj-topbar">
           <div className="nj-topbar__brand">
-            <span className="nj-logo" aria-hidden="true">
-              NOIRJACK
-            </span>
+            <img src={logoImage} alt="NoirJack logo" className="nj-logo" />
             <span className="sr-only">NoirJack Blackjack table</span>
             <div className="nj-topbar__controls">
               <button type="button" className="nj-btn nj-btn--ghost" aria-label="Table information">
