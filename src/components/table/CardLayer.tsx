@@ -35,6 +35,12 @@ interface SeatClusterLayout {
   size: SeatClusterSize;
 }
 
+interface HandMeasurement {
+  x: number;
+  y: number;
+  width: number;
+}
+
 const MIN_CLUSTER_GAP = 24;
 const SHIFT_LIMIT_BASE = 140;
 const CARD_WIDTH = 92;
@@ -42,6 +48,10 @@ const CARD_HEIGHT = 132;
 const CARD_GAP = 12;
 const DEALER_GAP = 16;
 const CARD_STEP = CARD_WIDTH + CARD_GAP;
+const HAND_VERTICAL_BASE_OFFSET = 12;
+const HAND_HORIZONTAL_BASE_OFFSET = 16;
+const HAND_HORIZONTAL_GAP = 32;
+const SPLIT_HAND_RIGHT_BIAS = 40;
 
 const normalizeVector = (vector: { x: number; y: number }): { x: number; y: number } => {
   const magnitude = Math.hypot(vector.x, vector.y);
@@ -276,6 +286,72 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   const clusterRefs = React.useRef(new Map<number, HTMLDivElement | null>());
   const clusterRefCallbacks = React.useRef(new Map<number, (node: HTMLDivElement | null) => void>());
   const [clusterSizes, setClusterSizes] = React.useState<Record<number, SeatClusterSize>>({});
+  const handRefs = React.useRef(new Map<string, HTMLDivElement | null>());
+  const handRefCallbacks = React.useRef(new Map<string, (node: HTMLDivElement | null) => void>());
+  const handSeatLookup = React.useRef(new Map<string, number>());
+  const [handMeasurements, setHandMeasurements] = React.useState<Record<string, HandMeasurement>>({});
+  const handMeasureFrame = React.useRef<number | null>(null);
+
+  const queueHandMeasurement = React.useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (handMeasureFrame.current !== null) {
+      window.cancelAnimationFrame(handMeasureFrame.current);
+    }
+    handMeasureFrame.current = window.requestAnimationFrame(() => {
+      handMeasureFrame.current = null;
+      const updates = new Map<string, HandMeasurement>();
+      handRefs.current.forEach((node, handId) => {
+        if (!node) {
+          return;
+        }
+        const seatIndex = handSeatLookup.current.get(handId);
+        if (seatIndex === undefined) {
+          return;
+        }
+        const clusterNode = clusterRefs.current.get(seatIndex);
+        if (!clusterNode) {
+          return;
+        }
+        const clusterRect = clusterNode.getBoundingClientRect();
+        const handRect = node.getBoundingClientRect();
+        updates.set(handId, {
+          x: handRect.left - clusterRect.left,
+          y: handRect.top - clusterRect.top,
+          width: handRect.width
+        });
+      });
+      if (updates.size === 0) {
+        return;
+      }
+      setHandMeasurements((previous) => {
+        let changed = false;
+        const next = { ...previous } as Record<string, HandMeasurement>;
+        updates.forEach((measurement, handId) => {
+          const prior = previous[handId];
+          if (
+            !prior ||
+            Math.abs(prior.x - measurement.x) > 0.5 ||
+            Math.abs(prior.y - measurement.y) > 0.5 ||
+            Math.abs(prior.width - measurement.width) > 0.5
+          ) {
+            next[handId] = measurement;
+            changed = true;
+          }
+        });
+        return changed ? next : previous;
+      });
+    });
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (handMeasureFrame.current !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(handMeasureFrame.current);
+      }
+    };
+  }, []);
 
   const getClusterRef = React.useCallback(
     (seatIndex: number) => {
@@ -296,6 +372,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
               }
               return { ...previous, [seatIndex]: nextSize };
             });
+            queueHandMeasurement();
           } else {
             clusterRefs.current.delete(seatIndex);
             setClusterSizes((previous) => {
@@ -306,12 +383,13 @@ export const CardLayer: React.FC<CardLayerProps> = ({
               delete next[seatIndex];
               return next;
             });
+            queueHandMeasurement();
           }
         });
       }
       return clusterRefCallbacks.current.get(seatIndex)!;
     },
-    []
+    [queueHandMeasurement]
   );
 
   const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
@@ -350,6 +428,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           }
           return { ...previous, [seatIndex]: { width, height } };
         });
+        queueHandMeasurement();
       });
       observer.observe(node);
       observers.push(observer);
@@ -357,7 +436,67 @@ export const CardLayer: React.FC<CardLayerProps> = ({
     return () => {
       observers.forEach((observer) => observer.disconnect());
     };
-  }, [layoutSignature]);
+  }, [layoutSignature, queueHandMeasurement]);
+
+  const getHandRef = React.useCallback(
+    (handId: string, seatIndex: number) => {
+      if (!handRefCallbacks.current.has(handId)) {
+        handRefCallbacks.current.set(handId, (node: HTMLDivElement | null) => {
+          if (node) {
+            handRefs.current.set(handId, node);
+          } else {
+            handRefs.current.delete(handId);
+            handSeatLookup.current.delete(handId);
+            setHandMeasurements((previous) => {
+              if (!(handId in previous)) {
+                return previous;
+              }
+              const next = { ...previous };
+              delete next[handId];
+              return next;
+            });
+            handRefCallbacks.current.delete(handId);
+          }
+          queueHandMeasurement();
+        });
+      }
+      const previousSeat = handSeatLookup.current.get(handId);
+      handSeatLookup.current.set(handId, seatIndex);
+      if (previousSeat !== seatIndex) {
+        queueHandMeasurement();
+      }
+      return handRefCallbacks.current.get(handId)!;
+    },
+    [queueHandMeasurement]
+  );
+
+  const handsSignature = React.useMemo(
+    () =>
+      seatsForMode
+        .map((seat) =>
+          seat.hands
+            .map((hand) =>
+              [
+                hand.id,
+                hand.cards.length,
+                hand.bet,
+                hand.insuranceBet ?? "none",
+                hand.isSplitHand ? 1 : 0,
+                hand.isDoubled ? 1 : 0,
+                hand.isSurrendered ? 1 : 0,
+                hand.isBlackjack ? 1 : 0,
+                hand.hasActed ? 1 : 0
+              ].join(":")
+            )
+            .join("|")
+        )
+        .join("||"),
+    [seatsForMode]
+  );
+
+  React.useLayoutEffect(() => {
+    queueHandMeasurement();
+  }, [queueHandMeasurement, handsSignature, seatLayouts, dimensions.height, dimensions.width]);
 
   const revealHole =
     game.phase === "dealerPlay" || game.phase === "settlement" || game.dealer.hand.isBlackjack;
@@ -442,7 +581,19 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         const isActiveSeat = game.activeSeatIndex === seat.index;
         const hands = seat.hands.length > 0 ? seat.hands : [];
         const clusterTop = position.y - layout.size.height / 2;
-        const cardTop = clusterTop + 12;
+        const clusterLeft = position.x - layout.size.width / 2;
+        const handWidths = hands.map((hand) => CARD_WIDTH + (hand.cards.length - 1) * CARD_STEP);
+        const totalCardsWidth = handWidths.reduce((sum, width) => sum + width, 0);
+        const totalGapWidth = Math.max(hands.length - 1, 0) * HAND_HORIZONTAL_GAP;
+        const isSplitCluster = hands.length > 1 && hands.every((candidate) => candidate.isSplitHand);
+        const splitClusterExtraWidth = isSplitCluster
+          ? ((hands.length - 1) * hands.length * SPLIT_HAND_RIGHT_BIAS) / 2
+          : 0;
+        const fallbackContentWidth = totalCardsWidth + totalGapWidth + splitClusterExtraWidth;
+        const fallbackStart = Math.max(
+          HAND_HORIZONTAL_BASE_OFFSET,
+          (layout.size.width - fallbackContentWidth) / 2
+        );
         const readyBadge =
           hands.length === 0 && seat.baseBet > 0 ? (
             <span
@@ -456,11 +607,24 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         const handNodes = hands.map((hand, handIndex) => {
           const handTotals = getHandTotals(hand);
           const cardCount = hand.cards.length;
-          const handOffsetX = handIndex * 18;
-          const baseCenterX = position.x + handOffsetX;
           const totalStep = CARD_STEP;
-          const startCenterX = baseCenterX - ((cardCount - 1) * totalStep) / 2;
           const cardRowWidth = CARD_WIDTH + (cardCount - 1) * totalStep;
+          const measurement = handMeasurements[hand.id];
+          const splitBias = isSplitCluster ? handIndex * SPLIT_HAND_RIGHT_BIAS : 0;
+          const cumulativeSplitBias = isSplitCluster
+            ? ((handIndex * (handIndex + 1)) / 2) * SPLIT_HAND_RIGHT_BIAS
+            : 0;
+          const fallbackOffsetX =
+            fallbackStart +
+            handWidths.slice(0, handIndex).reduce((sum, width) => sum + width, 0) +
+            handIndex * HAND_HORIZONTAL_GAP +
+            cumulativeSplitBias;
+          const fallbackOffsetY = HAND_VERTICAL_BASE_OFFSET;
+          const handLeft = clusterLeft + (measurement?.x ?? fallbackOffsetX);
+          const handWidth = measurement?.width ?? cardRowWidth;
+          const handCenterX = handLeft + handWidth / 2;
+          const startCenterX = handCenterX - ((cardCount - 1) * totalStep) / 2;
+          const cardTop = clusterTop + (measurement?.y ?? fallbackOffsetY);
 
           hand.cards.forEach((card, cardIndex) => {
             const centerX = startCenterX + cardIndex * totalStep;
@@ -483,11 +647,15 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           });
 
           return (
-            <div key={hand.id} className="player-hand pointer-events-none">
+            <div
+              key={hand.id}
+              className="player-hand pointer-events-none"
+              style={splitBias ? { marginLeft: `${splitBias}px` } : undefined}
+            >
               <div
                 aria-hidden
+                ref={getHandRef(hand.id, seat.index)}
                 className="player-hand__cards"
-                style={{ transform: `translateX(${handOffsetX}px)` }}
               >
                 <div className="player-hand__placeholder" style={{ width: cardRowWidth }} />
               </div>
@@ -527,6 +695,16 @@ export const CardLayer: React.FC<CardLayerProps> = ({
             <div className="pointer-events-auto flex flex-col items-center gap-2">{promptElements}</div>
           ) : null;
 
+        const handStack =
+          handNodes.length > 0 ? (
+            <div
+              className="pointer-events-none flex flex-wrap justify-center"
+              style={{ gap: `${HAND_HORIZONTAL_GAP}px` }}
+            >
+              {handNodes}
+            </div>
+          ) : null;
+
         const clusterRef = getClusterRef(seat.index);
         const boxShadow = isActiveSeat
           ? "0 0 0 2px rgba(200, 162, 74, 0.65), 0 18px 45px rgba(0,0,0,0.45)"
@@ -540,7 +718,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           >
             <div
               ref={clusterRef}
-              className="pointer-events-none flex max-w-[280px] flex-col items-center gap-3 rounded-2xl px-4 py-3"
+              className="pointer-events-none flex flex-col items-center gap-3 rounded-2xl px-4 py-3"
               style={{
                 boxShadow,
                 backgroundColor: "rgba(4, 24, 18, 0.65)",
@@ -550,7 +728,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
               {orientation === "up" && promptStack}
               <div className="pointer-events-none flex flex-col items-center gap-3">
                 {readyBadge}
-                {handNodes}
+                {handStack}
               </div>
               {orientation === "down" && promptStack}
             </div>
