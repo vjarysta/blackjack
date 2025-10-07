@@ -186,7 +186,8 @@ export const initGame = (overrides?: Partial<RuleConfig>): GameState => {
     messageLog: [],
     roundCount: 0,
     rules,
-    awaitingInsuranceResolution: false
+    awaitingInsuranceResolution: false,
+    lastWin: null
   };
 };
 
@@ -565,11 +566,17 @@ export const settleAllHands = (state: GameState): void => {
   if (state.phase !== "settlement") {
     return;
   }
+  
+  // Track total winnings for this round
+  let totalWinnings = 0;
+  
   const dealerBust = isBust(state.dealer.hand);
   const dealerTotal = bestTotal(state.dealer.hand);
   if (state.dealer.hand.isBlackjack) {
     for (const hand of allHands(state)) {
       if (hand.insuranceBet && hand.insuranceBet > 0) {
+        const insuranceWin = hand.insuranceBet * 2; // Insurance pays 2:1, so we win 2x the bet
+        totalWinnings += insuranceWin;
         state.bankroll += hand.insuranceBet * 3;
       }
       if (hand.isBlackjack) {
@@ -579,9 +586,27 @@ export const settleAllHands = (state: GameState): void => {
     }
   } else {
     for (const hand of allHands(state)) {
+      // Calculate winnings for this hand before settling
+      let handWinnings = 0;
+      
+      if (!hand.isSurrendered && !isBust(hand)) {
+        const playerTotal = bestTotal(hand);
+        if (hand.isBlackjack && !state.dealer.hand.isBlackjack) {
+          handWinnings = hand.bet * blackjackPayoutMultiplier(state.rules);
+        } else if (dealerBust || playerTotal > dealerTotal) {
+          handWinnings = hand.bet;
+        }
+        // No winnings for pushes or losses
+      }
+      
+      totalWinnings += handWinnings;
       settleHand(state, hand, dealerBust, dealerTotal);
     }
   }
+  
+  // Set lastWin if there were any winnings
+  state.lastWin = totalWinnings > 0 ? totalWinnings : null;
+  
   for (const seat of state.seats) {
     for (const hand of seat.hands) {
       discardCards(state.shoe, hand.cards);
@@ -598,6 +623,7 @@ export const prepareNextRound = (state: GameState): void => {
   }
   state.activeSeatIndex = null;
   state.activeHandId = null;
+  state.lastWin = null; // Clear last win when starting new round
   nextPhase(state, "betting");
   state.awaitingInsuranceResolution = false;
   if (state.shoe.needsReshuffle) {

@@ -99,4 +99,5 @@ export interface GameState {
   roundCount: number;
   rules: RuleConfig;
   awaitingInsuranceResolution: boolean;
+  lastWin: number | null;
 }
