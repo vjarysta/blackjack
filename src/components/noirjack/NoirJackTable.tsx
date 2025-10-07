@@ -6,11 +6,17 @@ import type { CoachMode } from "../../store/useGameStore";
 import type { ChipDenomination } from "../../theme/palette";
 import { formatCurrency } from "../../utils/currency";
 import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
-import { getRecommendation, type Action, type PlayerContext } from "../../utils/basicStrategy";
+import {
+  getRecommendation,
+  type Action,
+  type PlayerContext,
+} from "../../utils/basicStrategy";
 import { NoirCardFan } from "./NoirCardFan";
 import { Chip } from "../hud/Chip";
 import { cn } from "../../utils/cn";
-import { bestTotal } from "../../engine/totals";
+import { bestTotal, isBust } from "../../engine/totals";
+import { ResultToast, type ResultKind } from "./ResultToast";
+import { NoirJackResultToaster } from "./NoirJackResultToaster";
 import { audioService } from "../../services/AudioService";
 import { NoirSoundControls } from "./NoirSoundControls";
 import logoImage from "../../assets/images/logo.png";
@@ -60,7 +66,9 @@ const findActiveHand = (game: GameState): Hand | null => {
     return null;
   }
   for (const seat of filterSeatsForMode(game.seats)) {
-    const hand = seat.hands.find((candidate) => candidate.id === game.activeHandId);
+    const hand = seat.hands.find(
+      (candidate) => candidate.id === game.activeHandId
+    );
     if (hand) {
       return hand;
     }
@@ -68,41 +76,12 @@ const findActiveHand = (game: GameState): Hand | null => {
   return null;
 };
 
-const parseResultMessage = (messages: string[]): { tone: ResultTone; message: string } | null => {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message.startsWith("Seat 1")) {
-      continue;
-    }
-    if (message.includes("wins")) {
-      const amountMatch = message.match(/€([0-9.,]+)/);
-      const amount = amountMatch ? Number.parseFloat(amountMatch[1].replace(",", "")) : null;
-      return {
-        tone: "win",
-        message: amount ? `Win +€${amount.toFixed(2)}` : "Win"
-      };
-    }
-    if (message.includes("push")) {
-      return { tone: "push", message: "Push" };
-    }
-    if (message.includes("loses")) {
-      const amountMatch = message.match(/€([0-9.,]+)/);
-      const amount = amountMatch ? Number.parseFloat(amountMatch[1].replace(",", "")) : null;
-      return {
-        tone: "lose",
-        message: amount ? `Lose -€${amount.toFixed(2)}` : "Lose"
-      };
-    }
-  }
-  return null;
-};
-
 const buildCoachMessage = (action: Action, correct: boolean): string => {
   const label = action.charAt(0).toUpperCase() + action.slice(1);
-  return correct ? `Nice! ${label} was the right move.` : `Try ${label} next time.`;
+  return correct
+    ? `Nice! ${label} was the right move.`
+    : `Try ${label} next time.`;
 };
-
-type ResultTone = "win" | "lose" | "push";
 
 const usePrevious = <T,>(value: T): T | undefined => {
   const ref = React.useRef<T>();
@@ -117,7 +96,9 @@ const usePrefersReducedMotion = (): boolean => {
     if (typeof window === "undefined") {
       return false;
     }
-    return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+    return (
+      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false
+    );
   });
 
   React.useEffect(() => {
@@ -157,13 +138,139 @@ const useMediaQuery = (query: string): boolean => {
 
 const useHaptics = (disabled: boolean): (() => void) => {
   return React.useCallback(() => {
-    if (disabled || typeof window === "undefined" || typeof navigator === "undefined") {
+    if (
+      disabled ||
+      typeof window === "undefined" ||
+      typeof navigator === "undefined"
+    ) {
       return;
     }
     if (navigator.vibrate) {
       navigator.vibrate(12);
     }
   }, [disabled]);
+};
+
+interface HandResolution {
+  net: number;
+  outcome: ResultKind;
+  detail?: string;
+}
+
+const normalizeAmount = (value: number): number => {
+  const rounded = Math.round(value * 100) / 100;
+  return Math.abs(rounded) < 0.005 ? 0 : rounded;
+};
+
+const describeHand = (hand: Hand, game: GameState): HandResolution => {
+  const bet = hand.bet;
+  const insurance = hand.insuranceBet ?? 0;
+  const dealerHand = game.dealer.hand;
+  const dealerBust = isBust(dealerHand);
+  const dealerBlackjack = dealerHand.isBlackjack;
+  const playerBust = isBust(hand);
+  const blackjackMultiplier = game.rules.blackjackPayout === "6:5" ? 1.2 : 1.5;
+
+  let net = 0;
+  let outcome: ResultKind = "push";
+  let detail: string | undefined;
+
+  if (hand.isSurrendered) {
+    net -= bet / 2;
+    outcome = "lose";
+    detail = "Surrendered";
+  } else if (dealerBlackjack) {
+    if (hand.isBlackjack) {
+      outcome = "push";
+      detail = "Blackjack push";
+    } else {
+      net -= bet;
+      outcome = "lose";
+      detail = "Dealer blackjack";
+    }
+  } else if (playerBust) {
+    net -= bet;
+    outcome = "lose";
+    detail = "Player busts";
+  } else if (hand.isBlackjack) {
+    net += bet * blackjackMultiplier;
+    outcome = "blackjack";
+    detail = `Blackjack ${game.rules.blackjackPayout}`;
+  } else if (dealerBust) {
+    net += bet;
+    outcome = "win";
+    detail = "Dealer busts";
+  } else {
+    const playerTotal = bestTotal(hand);
+    const dealerTotal = bestTotal(dealerHand);
+    if (playerTotal > dealerTotal) {
+      net += bet;
+      outcome = "win";
+      detail = `${playerTotal} vs ${dealerTotal}`;
+    } else if (playerTotal === dealerTotal) {
+      outcome = "push";
+      detail = `${playerTotal} each`;
+    } else {
+      net -= bet;
+      outcome = "lose";
+      detail = `${playerTotal} vs ${dealerTotal}`;
+    }
+  }
+
+  if (insurance > 0) {
+    if (dealerBlackjack) {
+      net += insurance * 2;
+      detail = detail ? `${detail} • Insurance pays` : "Insurance pays";
+    } else {
+      net -= insurance;
+      detail = detail ? `${detail} • Insurance lost` : "Insurance lost";
+    }
+  }
+
+  return { net, outcome, detail };
+};
+
+const summarizeSettlement = (
+  game: GameState
+): { kind: ResultKind; amount: number; details?: string } | null => {
+  const seat = game.seats[PRIMARY_SEAT_INDEX];
+  if (!seat || !seat.occupied) {
+    return null;
+  }
+  const hands = seat.hands;
+  if (!hands || hands.length === 0) {
+    return null;
+  }
+
+  const resolutions = hands.map((hand) => describeHand(hand, game));
+  const total = resolutions.reduce((sum, entry) => sum + entry.net, 0);
+  const amount = normalizeAmount(total);
+  const anyBlackjack = resolutions.some(
+    (entry) => entry.outcome === "blackjack" && entry.net > 0
+  );
+
+  let kind: ResultKind;
+  if (amount > 0) {
+    kind = anyBlackjack ? "blackjack" : "win";
+  } else if (amount < 0) {
+    kind = "lose";
+  } else {
+    kind = "push";
+  }
+
+  const details =
+    resolutions.length > 1
+      ? `${resolutions.length} hands settled`
+      : resolutions[0]?.detail;
+
+  const meaningful = resolutions.some(
+    (entry) => Math.abs(entry.net) > 0.004 || entry.outcome !== "push"
+  );
+  if (!meaningful && amount === 0) {
+    return { kind: "push", amount: 0, details };
+  }
+
+  return { kind, amount, details };
 };
 
 interface ActionAvailability {
@@ -178,11 +285,14 @@ interface ActionAvailability {
   nextRound: boolean;
 }
 
-const CoachModeSelector: React.FC<{ mode: CoachMode; onChange: (mode: CoachMode) => void }> = ({ mode, onChange }) => {
+const CoachModeSelector: React.FC<{
+  mode: CoachMode;
+  onChange: (mode: CoachMode) => void;
+}> = ({ mode, onChange }) => {
   const labels: Record<CoachMode, string> = {
     off: "Off",
     feedback: "Feedback",
-    live: "Live"
+    live: "Live",
   };
 
   const next = React.useCallback(() => {
@@ -213,18 +323,21 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   onCoachModeChange,
   error,
   onDismissError,
-  modeToggle
+  modeToggle,
 }) => {
   const [activeChip, setActiveChip] = React.useState<ChipDenomination>(25);
-  const [coachMessage, setCoachMessage] = React.useState<{ tone: "correct" | "better"; text: string } | null>(null);
+  const [coachMessage, setCoachMessage] = React.useState<{
+    tone: "correct" | "better";
+    text: string;
+  } | null>(null);
   const [flashAction, setFlashAction] = React.useState<Action | null>(null);
   const messageTimer = React.useRef<number | null>(null);
   const highlightTimer = React.useRef<number | null>(null);
-  const [result, setResult] = React.useState<{ tone: ResultTone; message: string } | null>(null);
-  const resultTimer = React.useRef<number | null>(null);
-  const [chipMotion, setChipMotion] = React.useState<{ value: ChipDenomination; type: "add" | "remove"; stamp: number } | null>(
-    null
-  );
+  const [chipMotion, setChipMotion] = React.useState<{
+    value: ChipDenomination;
+    type: "add" | "remove";
+    stamp: number;
+  } | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const vibrate = useHaptics(prefersReducedMotion);
   const isMobile = useMediaQuery("(max-width: 480px)");
@@ -252,9 +365,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   React.useEffect(() => {
     return () => {
-      if (resultTimer.current) {
-        window.clearTimeout(resultTimer.current);
-      }
       if (highlightTimer.current) {
         window.clearTimeout(highlightTimer.current);
       }
@@ -295,9 +405,12 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       hand: activeHand,
       hit: canHit(activeHand),
       stand: !activeHand.isResolved,
-      double: canDouble(activeHand, game.rules) && game.bankroll >= activeHand.bet,
-      split: canSplit(activeHand, seat, game.rules) && game.bankroll >= activeHand.bet,
-      surrender: canSurrender(activeHand, game.rules)
+      double:
+        canDouble(activeHand, game.rules) && game.bankroll >= activeHand.bet,
+      split:
+        canSplit(activeHand, seat, game.rules) &&
+        game.bankroll >= activeHand.bet,
+      surrender: canSurrender(activeHand, game.rules),
     };
   }, [activeHand, game.bankroll, game.phase, game.rules, seat]);
 
@@ -311,18 +424,23 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     const context: PlayerContext = {
       dealerUpcard: {
         rank,
-        value10: dealerUpcard.rank === "10" || dealerUpcard.rank === "J" || dealerUpcard.rank === "Q" || dealerUpcard.rank === "K"
+        value10:
+          dealerUpcard.rank === "10" ||
+          dealerUpcard.rank === "J" ||
+          dealerUpcard.rank === "Q" ||
+          dealerUpcard.rank === "K",
       },
       cards: actionContext.hand.cards.map((card) => ({ rank: card.rank })),
-      isInitialTwoCards: actionContext.hand.cards.length === 2 && !actionContext.hand.hasActed,
+      isInitialTwoCards:
+        actionContext.hand.cards.length === 2 && !actionContext.hand.hasActed,
       afterSplit: Boolean(actionContext.hand.isSplitHand),
       legal: {
         hit: actionContext.hit,
         stand: actionContext.stand,
         double: actionContext.double,
         split: actionContext.split,
-        surrender: actionContext.surrender
-      }
+        surrender: actionContext.surrender,
+      },
     };
     return getRecommendation(context, game.rules);
   }, [actionContext, dealerUpcard, game.rules]);
@@ -379,7 +497,10 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     (action: Action, callback: () => void) => {
       if (coachMode === "feedback" && recommendedAction) {
         const correct = action === recommendedAction;
-        setCoachMessage({ tone: correct ? "correct" : "better", text: buildCoachMessage(recommendedAction, correct) });
+        setCoachMessage({
+          tone: correct ? "correct" : "better",
+          text: buildCoachMessage(recommendedAction, correct),
+        });
         if (!correct) {
           setFlashAction(recommendedAction);
           if (highlightTimer.current) {
@@ -400,13 +521,22 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     [coachMode, playActionTap, recommendedAction, vibrate]
   );
 
-  const handleHit = React.useCallback(() => triggerFeedback("hit", actions.playerHit), [actions.playerHit, triggerFeedback]);
-  const handleStand = React.useCallback(() => triggerFeedback("stand", actions.playerStand), [actions.playerStand, triggerFeedback]);
+  const handleHit = React.useCallback(
+    () => triggerFeedback("hit", actions.playerHit),
+    [actions.playerHit, triggerFeedback]
+  );
+  const handleStand = React.useCallback(
+    () => triggerFeedback("stand", actions.playerStand),
+    [actions.playerStand, triggerFeedback]
+  );
   const handleDouble = React.useCallback(
     () => triggerFeedback("double", actions.playerDouble),
     [actions.playerDouble, triggerFeedback]
   );
-  const handleSplit = React.useCallback(() => triggerFeedback("split", actions.playerSplit), [actions.playerSplit, triggerFeedback]);
+  const handleSplit = React.useCallback(
+    () => triggerFeedback("split", actions.playerSplit),
+    [actions.playerSplit, triggerFeedback]
+  );
   const handleSurrender = React.useCallback(
     () => triggerFeedback("surrender", actions.playerSurrender),
     [actions.playerSurrender, triggerFeedback]
@@ -422,7 +552,7 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       deal: game.phase === "betting" && hasReadySeat(game),
       finishInsurance: game.phase === "insurance",
       playDealer: game.phase === "dealerPlay",
-      nextRound: game.phase === "settlement"
+      nextRound: game.phase === "settlement",
     }),
     [actionContext, game]
   );
@@ -517,14 +647,19 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     if (game.phase !== "insurance" || !seat) {
       return [null, 0] as const;
     }
-    const hand = seat.hands.find((candidate) => candidate.insuranceBet === undefined && !candidate.isResolved);
+    const hand = seat.hands.find(
+      (candidate) =>
+        candidate.insuranceBet === undefined && !candidate.isResolved
+    );
     if (!hand) {
       return [null, 0] as const;
     }
     return [hand.id, Math.min(hand.bet / 2, game.bankroll)];
   }, [game.bankroll, game.phase, seat]);
 
-  const showInsuranceSheet = Boolean(insuranceHandId && game.awaitingInsuranceResolution);
+  const showInsuranceSheet = Boolean(
+    insuranceHandId && game.awaitingInsuranceResolution
+  );
 
   const wasInsuranceOpen = usePrevious(showInsuranceSheet);
 
@@ -580,22 +715,12 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   React.useEffect(() => {
     if (game.phase === "settlement" && prevPhase !== "settlement") {
-      const parsed = parseResultMessage(game.messageLog);
-      if (parsed) {
-        setResult(parsed);
-        if (resultTimer.current) {
-          window.clearTimeout(resultTimer.current);
-        }
-        resultTimer.current = window.setTimeout(() => {
-          setResult(null);
-          resultTimer.current = null;
-        }, 1800);
+      const summary = summarizeSettlement(game);
+      if (summary) {
+        ResultToast.show(summary.kind, summary.amount, summary.details);
       }
     }
-    if (game.phase !== "settlement" && prevPhase === "settlement") {
-      setResult(null);
-    }
-  }, [game.messageLog, game.phase, prevPhase]);
+  }, [game, prevPhase]);
 
   const dealerCards = game.dealer.hand.cards;
   const faceDownIndexes = React.useMemo(() => {
@@ -611,7 +736,10 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const totalCardCount = React.useMemo(() => {
     const dealerCount = dealerCards.length + (game.dealer.holeCard ? 1 : 0);
     const playerCount = game.seats.reduce((sum, seatItem) => {
-      const seatCards = seatItem.hands.reduce((inner, hand) => inner + hand.cards.length, 0);
+      const seatCards = seatItem.hands.reduce(
+        (inner, hand) => inner + hand.cards.length,
+        0
+      );
       return sum + seatCards;
     }, 0);
     return dealerCount + playerCount;
@@ -619,15 +747,23 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const previousCardCount = usePrevious(totalCardCount);
 
   React.useEffect(() => {
-    if (typeof previousCardCount === "number" && totalCardCount > previousCardCount) {
+    if (
+      typeof previousCardCount === "number" &&
+      totalCardCount > previousCardCount
+    ) {
       audioService.play("deal");
     }
   }, [previousCardCount, totalCardCount]);
 
   const playerHands = seat?.hands ?? [];
-  const rawActiveIndex = playerHands.findIndex((hand) => hand.id === game.activeHandId);
-  const resolvedActiveIndex = rawActiveIndex >= 0 ? rawActiveIndex : playerHands.length > 0 ? 0 : -1;
-  const focusedHand = activeHand ?? (resolvedActiveIndex >= 0 ? playerHands[resolvedActiveIndex] : null);
+  const rawActiveIndex = playerHands.findIndex(
+    (hand) => hand.id === game.activeHandId
+  );
+  const resolvedActiveIndex =
+    rawActiveIndex >= 0 ? rawActiveIndex : playerHands.length > 0 ? 0 : -1;
+  const focusedHand =
+    activeHand ??
+    (resolvedActiveIndex >= 0 ? playerHands[resolvedActiveIndex] : null);
 
   const dealerStatus = React.useMemo(() => {
     if (faceDownIndexes.length > 0 && game.dealer.upcard) {
@@ -653,7 +789,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const errorBanner = error ? (
     <div className="nj-glass nj-error" role="alert">
       <span>{error}</span>
-      <button type="button" className="nj-btn nj-btn--ghost" onClick={onDismissError}>
+      <button
+        type="button"
+        className="nj-btn nj-btn--ghost"
+        onClick={onDismissError}
+      >
         Dismiss
       </button>
     </div>
@@ -666,7 +806,7 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     { label: "Cards", value: game.shoe.cards.length },
     { label: "Discard", value: game.shoe.discard.length },
     { label: "Min", value: formatCurrency(game.rules.minBet) },
-    { label: "Max", value: formatCurrency(game.rules.maxBet) }
+    { label: "Max", value: formatCurrency(game.rules.maxBet) },
   ];
 
   React.useEffect(() => {
@@ -694,7 +834,10 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
         audioService.play("surrender");
         return;
       }
-      if (normalized.includes("blackjack wins") || normalized.startsWith("dealer has blackjack")) {
+      if (
+        normalized.includes("blackjack wins") ||
+        normalized.startsWith("dealer has blackjack")
+      ) {
         audioService.play("blackjack");
         return;
       }
@@ -728,40 +871,51 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       ? {
           label: "Deal",
           onClick: handleDeal,
-          disabled: !availability.deal
+          disabled: !availability.deal,
         }
       : null,
     availability.finishInsurance
       ? {
           label: "Finish insurance",
           onClick: handleFinishInsurance,
-          disabled: !availability.finishInsurance
+          disabled: !availability.finishInsurance,
         }
       : null,
     availability.playDealer
       ? {
           label: "Play dealer",
           onClick: handlePlayDealer,
-          disabled: !availability.playDealer
+          disabled: !availability.playDealer,
         }
       : null,
     availability.nextRound
       ? {
           label: "Next round",
           onClick: handleNextRound,
-          disabled: !availability.nextRound
+          disabled: !availability.nextRound,
         }
-      : null
-  ].filter((control): control is { label: string; onClick: () => void; disabled: boolean } => control !== null);
+      : null,
+  ].filter(
+    (
+      control
+    ): control is { label: string; onClick: () => void; disabled: boolean } =>
+      control !== null
+  );
 
-  const renderChipTray = (options?: { closable?: boolean }): React.ReactNode => (
+  const renderChipTray = (options?: {
+    closable?: boolean;
+  }): React.ReactNode => (
     <>
       <div className="nj-controls__tray-header">
         <span>Chips</span>
         <div className="nj-controls__tray-meta">
           <span>{formatCurrency(seat?.baseBet ?? 0)}</span>
           {options?.closable ? (
-            <button type="button" className="nj-chip-sheet__close" onClick={closeChipSheet}>
+            <button
+              type="button"
+              className="nj-chip-sheet__close"
+              onClick={closeChipSheet}
+            >
               Close
             </button>
           ) : null}
@@ -780,13 +934,22 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
               handleChipRemoval(value);
             }}
             aria-label={`Select ${value} chip`}
-            data-chip-motion={chipMotion?.value === value ? `${chipMotion.type}-${chipMotion.stamp}` : undefined}
+            data-chip-motion={
+              chipMotion?.value === value
+                ? `${chipMotion.type}-${chipMotion.stamp}`
+                : undefined
+            }
             className="nj-chip"
           />
         ))}
       </div>
       <div className="nj-tray-actions">
-        <button type="button" className="nj-btn" onClick={handleAddActiveChip} disabled={game.phase !== "betting"}>
+        <button
+          type="button"
+          className="nj-btn"
+          onClick={handleAddActiveChip}
+          disabled={game.phase !== "betting"}
+        >
           Add {activeChip}
         </button>
         <button
@@ -811,6 +974,7 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   return (
     <div className="noirjack-app">
+      <NoirJackResultToaster isMobile={isMobile} />
       <div className="noirjack-felt" />
       <div className="noirjack-content">
         <header className="nj-topbar">
@@ -818,12 +982,23 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
             <img src={logoImage} alt="NoirJack logo" className="nj-logo" />
             <span className="sr-only">NoirJack Blackjack table</span>
             <div className="nj-topbar__controls">
-              <button type="button" className="nj-btn nj-btn--ghost" aria-label="Table information">
+              <button
+                type="button"
+                className="nj-btn nj-btn--ghost"
+                aria-label="Table information"
+              >
                 <Info size={18} aria-hidden="true" />
               </button>
-              <CoachModeSelector mode={coachMode} onChange={onCoachModeChange} />
+              <CoachModeSelector
+                mode={coachMode}
+                onChange={onCoachModeChange}
+              />
               <NoirSoundControls />
-              <button type="button" className="nj-btn nj-btn--ghost" aria-label="Table settings">
+              <button
+                type="button"
+                className="nj-btn nj-btn--ghost"
+                aria-label="Table settings"
+              >
                 <Settings2 size={18} aria-hidden="true" />
               </button>
             </div>
@@ -848,7 +1023,10 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 <span className="nj-panel__subtitle">{dealerStatus}</span>
               </div>
               <div className="nj-panel__cards">
-                <NoirCardFan cards={dealerCards} faceDownIndexes={faceDownIndexes} />
+                <NoirCardFan
+                  cards={dealerCards}
+                  faceDownIndexes={faceDownIndexes}
+                />
               </div>
               {game.phase === "insurance" && (
                 <div className="nj-panel__footer">Insurance available</div>
@@ -863,11 +1041,15 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 <div className="nj-panel__meta">
                   <div>
                     <span className="nj-stat__label">Total</span>
-                    <span className="nj-panel__value">{playerTotal ?? "--"}</span>
+                    <span className="nj-panel__value">
+                      {playerTotal ?? "--"}
+                    </span>
                   </div>
                   <div>
                     <span className="nj-stat__label">Bet</span>
-                    <span className="nj-panel__value">{formatCurrency(playerBet)}</span>
+                    <span className="nj-panel__value">
+                      {formatCurrency(playerBet)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -876,11 +1058,18 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                   <NoirCardFan cards={focusedHand?.cards ?? []} />
                 </div>
                 {playerHands.length > 1 && (
-                  <div className="nj-hand-tabs" role="tablist" aria-label="Split hands">
+                  <div
+                    className="nj-hand-tabs"
+                    role="tablist"
+                    aria-label="Split hands"
+                  >
                     {playerHands.map((hand, index) => (
                       <div
                         key={hand.id}
-                        className={cn("nj-hand-tab", index === resolvedActiveIndex && "nj-hand-tab--active")}
+                        className={cn(
+                          "nj-hand-tab",
+                          index === resolvedActiveIndex && "nj-hand-tab--active"
+                        )}
                         role="tab"
                         aria-selected={index === resolvedActiveIndex}
                       >
@@ -895,7 +1084,9 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 <div
                   className={cn(
                     "nj-coach-banner",
-                    coachMessage.tone === "correct" ? "nj-coach-banner--good" : "nj-coach-banner--warn"
+                    coachMessage.tone === "correct"
+                      ? "nj-coach-banner--good"
+                      : "nj-coach-banner--warn"
                   )}
                 >
                   {coachMessage.text}
@@ -921,7 +1112,13 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                   Chips
                 </button>
                 {chipsOpen && (
-                  <div className="nj-chip-sheet" id={chipSheetId} role="dialog" aria-modal="true" aria-label="Select chips">
+                  <div
+                    className="nj-chip-sheet"
+                    id={chipSheetId}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Select chips"
+                  >
                     <button
                       type="button"
                       className="nj-chip-sheet__backdrop"
@@ -935,7 +1132,9 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 )}
               </>
             ) : (
-              <div className="nj-controls__tray nj-glass">{renderChipTray()}</div>
+              <div className="nj-controls__tray nj-glass">
+                {renderChipTray()}
+              </div>
             )}
           </div>
           <div className="nj-controls__actions nj-glass">
@@ -945,7 +1144,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 className="nj-btn nj-btn-primary"
                 onClick={handleHit}
                 disabled={game.phase !== "playerActions" || !availability.hit}
-                data-coach={game.phase === "playerActions" ? actionHighlight("hit") : undefined}
+                data-coach={
+                  game.phase === "playerActions"
+                    ? actionHighlight("hit")
+                    : undefined
+                }
               >
                 Hit
               </button>
@@ -954,7 +1157,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 className="nj-btn nj-btn-primary"
                 onClick={handleStand}
                 disabled={game.phase !== "playerActions" || !availability.stand}
-                data-coach={game.phase === "playerActions" ? actionHighlight("stand") : undefined}
+                data-coach={
+                  game.phase === "playerActions"
+                    ? actionHighlight("stand")
+                    : undefined
+                }
               >
                 Stand
               </button>
@@ -964,8 +1171,14 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 type="button"
                 className="nj-btn"
                 onClick={handleDouble}
-                disabled={game.phase !== "playerActions" || !availability.double}
-                data-coach={game.phase === "playerActions" ? actionHighlight("double") : undefined}
+                disabled={
+                  game.phase !== "playerActions" || !availability.double
+                }
+                data-coach={
+                  game.phase === "playerActions"
+                    ? actionHighlight("double")
+                    : undefined
+                }
               >
                 Double
               </button>
@@ -974,7 +1187,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 className="nj-btn"
                 onClick={handleSplit}
                 disabled={game.phase !== "playerActions" || !availability.split}
-                data-coach={game.phase === "playerActions" ? actionHighlight("split") : undefined}
+                data-coach={
+                  game.phase === "playerActions"
+                    ? actionHighlight("split")
+                    : undefined
+                }
               >
                 Split
               </button>
@@ -982,8 +1199,14 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 type="button"
                 className="nj-btn"
                 onClick={handleSurrender}
-                disabled={game.phase !== "playerActions" || !availability.surrender}
-                data-coach={game.phase === "playerActions" ? actionHighlight("surrender") : undefined}
+                disabled={
+                  game.phase !== "playerActions" || !availability.surrender
+                }
+                data-coach={
+                  game.phase === "playerActions"
+                    ? actionHighlight("surrender")
+                    : undefined
+                }
               >
                 Surrender
               </button>
@@ -994,7 +1217,12 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                   <button
                     key={control.label}
                     type="button"
-                    className={cn("nj-btn", control.label === "Deal" ? "nj-btn-primary" : "nj-btn--ghost")}
+                    className={cn(
+                      "nj-btn",
+                      control.label === "Deal"
+                        ? "nj-btn-primary"
+                        : "nj-btn--ghost"
+                    )}
                     onClick={control.onClick}
                     disabled={control.disabled}
                   >
@@ -1008,31 +1236,34 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       </div>
 
       {showInsuranceSheet && (
-        <div className="nj-insurance" role="dialog" aria-modal="true" aria-label="Insurance decision">
+        <div
+          className="nj-insurance"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Insurance decision"
+        >
           <div className="nj-insurance__sheet nj-glass">
             <h2>Insurance?</h2>
             <p>Take insurance for €{insuranceAmount.toFixed(2)}?</p>
             <div className="nj-insurance__actions">
-              <button type="button" className="nj-btn nj-btn-primary" onClick={takeInsurance}>
+              <button
+                type="button"
+                className="nj-btn nj-btn-primary"
+                onClick={takeInsurance}
+              >
                 Take insurance
               </button>
-              <button type="button" className="nj-btn nj-btn--ghost" onClick={skipInsurance}>
+              <button
+                type="button"
+                className="nj-btn nj-btn--ghost"
+                onClick={skipInsurance}
+              >
                 Skip
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {result && (
-        <div className={cn("nj-result", `nj-result--${result.tone}`)} role="status" aria-live="polite">
-          <span className="nj-result__label">{result.message}</span>
-        </div>
-      )}
-
-      <div className="sr-only" aria-live="polite">
-        {result ? `Player ${result.message}` : ""}
-      </div>
     </div>
   );
 };
