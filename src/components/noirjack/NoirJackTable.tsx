@@ -6,18 +6,18 @@ import type { ChipDenomination } from "../../theme/palette";
 import { formatCurrency } from "../../utils/currency";
 import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { getRecommendation, type Action, type PlayerContext } from "../../utils/basicStrategy";
-import { AppShellMobile } from "./AppShellMobile";
-import { TopBarCompact } from "./TopBarCompact";
-import { DealerHandView } from "./DealerHandView";
-import { PlayerHandView } from "./PlayerHandView";
-import { ChipTray } from "./ChipTray";
-import { ActionBar } from "./ActionBar";
-import { InsuranceSheet } from "./InsuranceSheet";
-import { ResultBanner, type ResultTone } from "./ResultBanner";
-import { Button } from "../ui/button";
+import { NoirJackShell } from "./NoirJackShell";
+import { NoirJackTopBar } from "./NoirJackTopBar";
+import { NoirJackDealer } from "./NoirJackDealer";
+import { NoirJackPlayer } from "./NoirJackPlayer";
+import { NoirJackChipTray } from "./NoirJackChipTray";
+import { NoirJackActionBar } from "./NoirJackActionBar";
+import { NoirJackInsuranceSheet } from "./NoirJackInsuranceSheet";
+import { ResultBanner, type ResultTone } from "./NoirJackResultBanner";
 import { cn } from "../../utils/cn";
+import "./noirjack.css";
 
-interface MobileTableProps {
+interface NoirJackTableProps {
   game: GameState;
   coachMode: CoachMode;
   actions: {
@@ -99,7 +99,7 @@ const parseResultMessage = (messages: string[]): { tone: ResultTone; message: st
 
 const buildCoachMessage = (action: Action, correct: boolean): string => {
   const label = action.charAt(0).toUpperCase() + action.slice(1);
-  return correct ? `Nice! ${label} was the right move.` : `Try ${label} next time.`;
+  return correct ? `Nice! ${label} was right.` : `Try ${label} next time.`;
 };
 
 const usePrevious = <T,>(value: T): T | undefined => {
@@ -110,7 +110,21 @@ const usePrevious = <T,>(value: T): T | undefined => {
   return ref.current;
 };
 
-export const MobileTable: React.FC<MobileTableProps> = ({
+const vibrate = (duration = 15): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const nav = window.navigator as Navigator & { vibrate?: (pattern: number | number[]) => void };
+  if (nav?.vibrate) {
+    try {
+      nav.vibrate(duration);
+    } catch {
+      // ignore
+    }
+  }
+};
+
+export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   game,
   coachMode,
   actions,
@@ -126,6 +140,7 @@ export const MobileTable: React.FC<MobileTableProps> = ({
   const highlightTimer = React.useRef<number | null>(null);
   const [result, setResult] = React.useState<{ tone: ResultTone; message: string } | null>(null);
   const resultTimer = React.useRef<number | null>(null);
+  const [bankrollTone, setBankrollTone] = React.useState<"win" | "lose" | null>(null);
 
   React.useEffect(() => {
     if (messageTimer.current) {
@@ -136,7 +151,7 @@ export const MobileTable: React.FC<MobileTableProps> = ({
       messageTimer.current = window.setTimeout(() => {
         setCoachMessage(null);
         messageTimer.current = null;
-      }, 2500);
+      }, 2600);
     }
     return () => {
       if (messageTimer.current) {
@@ -186,7 +201,7 @@ export const MobileTable: React.FC<MobileTableProps> = ({
     const context: PlayerContext = {
       dealerUpcard: {
         rank,
-        value10: dealerUpcard.rank === "10" || dealerUpcard.rank === "J" || dealerUpcard.rank === "Q" || dealerUpcard.rank === "K"
+        value10: ["10", "J", "Q", "K"].includes(dealerUpcard.rank)
       },
       cards: actionContext.hand.cards.map((card) => ({ rank: card.rank })),
       isInitialTwoCards: actionContext.hand.cards.length === 2 && !actionContext.hand.hasActed,
@@ -263,23 +278,15 @@ export const MobileTable: React.FC<MobileTableProps> = ({
         }
       }
       callback();
+      vibrate(12);
     },
     [coachMode, recommendedAction]
   );
 
   const handleHit = React.useCallback(() => triggerFeedback("hit", actions.playerHit), [actions.playerHit, triggerFeedback]);
-  const handleStand = React.useCallback(
-    () => triggerFeedback("stand", actions.playerStand),
-    [actions.playerStand, triggerFeedback]
-  );
-  const handleDouble = React.useCallback(
-    () => triggerFeedback("double", actions.playerDouble),
-    [actions.playerDouble, triggerFeedback]
-  );
-  const handleSplit = React.useCallback(
-    () => triggerFeedback("split", actions.playerSplit),
-    [actions.playerSplit, triggerFeedback]
-  );
+  const handleStand = React.useCallback(() => triggerFeedback("stand", actions.playerStand), [actions.playerStand, triggerFeedback]);
+  const handleDouble = React.useCallback(() => triggerFeedback("double", actions.playerDouble), [actions.playerDouble, triggerFeedback]);
+  const handleSplit = React.useCallback(() => triggerFeedback("split", actions.playerSplit), [actions.playerSplit, triggerFeedback]);
   const handleSurrender = React.useCallback(
     () => triggerFeedback("surrender", actions.playerSurrender),
     [actions.playerSurrender, triggerFeedback]
@@ -307,6 +314,7 @@ export const MobileTable: React.FC<MobileTableProps> = ({
         return;
       }
       actions.addChip(PRIMARY_SEAT_INDEX, value);
+      vibrate(10);
     },
     [actions, game.bankroll, game.phase, game.rules.maxBet, seat]
   );
@@ -346,6 +354,7 @@ export const MobileTable: React.FC<MobileTableProps> = ({
       return;
     }
     actions.takeInsurance(PRIMARY_SEAT_INDEX, insuranceHandId, insuranceAmount);
+    vibrate(12);
   }, [actions, insuranceAmount, insuranceHandId]);
 
   const skipInsurance = React.useCallback(() => {
@@ -356,6 +365,16 @@ export const MobileTable: React.FC<MobileTableProps> = ({
   }, [actions, insuranceHandId]);
 
   const prevPhase = usePrevious(game.phase);
+  const prevBankroll = usePrevious(game.bankroll);
+
+  React.useEffect(() => {
+    if (prevBankroll !== undefined && prevBankroll !== game.bankroll) {
+      setBankrollTone(game.bankroll > prevBankroll ? "win" : "lose");
+      const timeout = window.setTimeout(() => setBankrollTone(null), 480);
+      return () => window.clearTimeout(timeout);
+    }
+    return undefined;
+  }, [game.bankroll, prevBankroll]);
 
   React.useEffect(() => {
     if (game.phase === "settlement" && prevPhase !== "settlement") {
@@ -368,7 +387,7 @@ export const MobileTable: React.FC<MobileTableProps> = ({
         resultTimer.current = window.setTimeout(() => {
           setResult(null);
           resultTimer.current = null;
-        }, 3500);
+        }, 3200);
       }
     }
     if (game.phase !== "settlement" && prevPhase === "settlement") {
@@ -377,87 +396,91 @@ export const MobileTable: React.FC<MobileTableProps> = ({
   }, [game.messageLog, game.phase, prevPhase]);
 
   const errorBanner = error ? (
-    <div className="flex items-center justify-between bg-rose-900/60 px-4 py-2 text-sm text-rose-100">
+    <div className="flex items-center justify-between gap-4 px-2 py-2 text-sm">
       <span>{error}</span>
-      <Button variant="ghost" size="sm" onClick={onDismissError}>
+      <button type="button" className="nj-btn nj-btn-secondary text-xs" onClick={onDismissError}>
         Dismiss
-      </Button>
+      </button>
     </div>
   ) : null;
 
+  const coachToast = coachMessage ? (
+    <div
+      className={cn(
+        "mx-auto w-full max-w-md rounded-2xl border px-4 py-3 text-xs font-semibold uppercase tracking-[0.24em]",
+        coachMessage.tone === "correct"
+          ? "border-[rgba(34,197,94,0.45)] bg-[rgba(34,197,94,0.15)] text-[var(--nj-text)]"
+          : "border-[rgba(233,196,106,0.5)] bg-[rgba(233,196,106,0.12)] text-[var(--nj-text)]"
+      )}
+      role="status"
+      aria-live="polite"
+    >
+      {coachMessage.text}
+    </div>
+  ) : null;
+
+  const dealerInsuranceMessage = game.phase === "insurance" ? "Insurance available" : null;
+
   return (
-    <AppShellMobile
+    <NoirJackShell
       topBar={
-        <TopBarCompact
+        <NoirJackTopBar
           rules={game.rules}
           bankroll={game.bankroll}
           round={game.roundCount}
           phase={game.phase}
           cardsRemaining={game.shoe.cards.length}
           discardCount={game.shoe.discard.length}
+          minBet={game.rules.minBet}
+          maxBet={game.rules.maxBet}
           coachMode={coachMode}
           onCoachModeChange={onCoachModeChange}
           modeToggle={modeToggle}
+          bankrollTone={bankrollTone}
         />
       }
-      dealer={<DealerHandView dealer={game.dealer} phase={game.phase} />}
-      player={<PlayerHandView seat={seat} activeHandId={game.activeHandId} />}
-      bottomBar={
-        <div
-          className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-start sm:justify-between"
-          style={{ paddingBottom: "max(env(safe-area-inset-bottom), 16px)" }}
-        >
-          <div className="sm:w-[260px]">
-            <ChipTray
-              activeChip={activeChip}
-              onSelect={setActiveChip}
-              onAdd={handleAddChip}
-              onRemove={handleRemoveChipValue}
-              onRemoveTop={handleRemoveTopChip}
-              disabled={game.phase !== "betting"}
-            />
-          </div>
-          <div className="flex-1 rounded-3xl border border-emerald-800/60 bg-emerald-950/70 px-4 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.4)]">
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.32em] text-emerald-200">
-                <span>Bankroll {formatCurrency(game.bankroll)}</span>
-                <span>Bet {formatCurrency(seat?.baseBet ?? 0)}</span>
-              </div>
-              {coachMessage && (
-                <div
-                  className={cn(
-                    "rounded-2xl border px-3 py-2 text-xs font-semibold uppercase tracking-[0.28em]",
-                    coachMessage.tone === "correct"
-                      ? "border-emerald-400/70 bg-emerald-500/20 text-emerald-100"
-                      : "border-amber-400/70 bg-amber-500/20 text-amber-100"
-                  )}
-                >
-                  {coachMessage.text}
-                </div>
-              )}
-              <ActionBar
-                availability={availability}
-                onDeal={actions.deal}
-                onFinishInsurance={actions.finishInsurance}
-                onPlayDealer={actions.playDealer}
-                onNextRound={actions.nextRound}
-                onHit={handleHit}
-                onStand={handleStand}
-                onDouble={handleDouble}
-                onSplit={handleSplit}
-                onSurrender={handleSurrender}
-                highlightedAction={highlightedAction}
-                coachMode={coachMode}
-              />
+      dealer={<NoirJackDealer dealer={game.dealer} phase={game.phase} insuranceMessage={dealerInsuranceMessage} />}
+      player={<NoirJackPlayer seat={seat} activeHandId={game.activeHandId} />}
+      controls={
+        <div className="grid gap-6 md:grid-cols-[minmax(0,0.95fr)_minmax(0,1.2fr)] md:items-start">
+          <NoirJackChipTray
+            activeChip={activeChip}
+            onSelect={setActiveChip}
+            onAdd={(value) => {
+              setActiveChip(value);
+              handleAddChip(value);
+            }}
+            onRemove={handleRemoveChipValue}
+            onRemoveTop={handleRemoveTopChip}
+            disabled={game.phase !== "betting"}
+          />
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm uppercase tracking-[0.18em] text-[var(--nj-text-muted)]">
+              <span>Bankroll {formatCurrency(game.bankroll)}</span>
+              <span>Bet {formatCurrency(seat?.baseBet ?? 0)}</span>
             </div>
+            <NoirJackActionBar
+              availability={availability}
+              onDeal={actions.deal}
+              onFinishInsurance={actions.finishInsurance}
+              onPlayDealer={actions.playDealer}
+              onNextRound={actions.nextRound}
+              onHit={handleHit}
+              onStand={handleStand}
+              onDouble={handleDouble}
+              onSplit={handleSplit}
+              onSurrender={handleSurrender}
+              highlightedAction={highlightedAction}
+            />
           </div>
         </div>
       }
       insuranceSheet={
-        <InsuranceSheet open={showInsuranceSheet} amount={insuranceAmount} onTake={takeInsurance} onSkip={skipInsurance} />
+        <NoirJackInsuranceSheet open={showInsuranceSheet} amount={insuranceAmount} onTake={takeInsurance} onSkip={skipInsurance} />
       }
       resultBanner={result ? <ResultBanner tone={result.tone} message={result.message} /> : null}
       errorBanner={errorBanner}
+      coachMessage={coachToast}
     />
   );
 };

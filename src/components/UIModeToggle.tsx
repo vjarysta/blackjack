@@ -16,15 +16,15 @@ export const UIModeToggle: React.FC<UIModeToggleProps> = ({ mode, onChange }) =>
   );
 
   return (
-    <div className="inline-flex rounded-full border border-emerald-700 bg-emerald-900/60 p-1 text-xs text-emerald-200 shadow"> 
+    <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 p-1 text-[11px] uppercase tracking-[0.24em] text-white/80 shadow">
       <button
         type="button"
         onClick={handleSelect("classic")}
         className={cn(
-          "rounded-full px-3 py-1 font-semibold uppercase tracking-[0.2em] transition",
+          "rounded-full px-3 py-1 font-semibold transition",
           mode === "classic"
-            ? "bg-emerald-600 text-emerald-50 shadow-inner"
-            : "text-emerald-200 hover:text-emerald-50"
+            ? "bg-white/20 text-white shadow-inner"
+            : "text-white/70 hover:text-white"
         )}
         aria-pressed={mode === "classic"}
         aria-label="Switch to classic table UI"
@@ -33,17 +33,17 @@ export const UIModeToggle: React.FC<UIModeToggleProps> = ({ mode, onChange }) =>
       </button>
       <button
         type="button"
-        onClick={handleSelect("mobile")}
+        onClick={handleSelect("noirjack")}
         className={cn(
-          "rounded-full px-3 py-1 font-semibold uppercase tracking-[0.2em] transition",
-          mode === "mobile"
-            ? "bg-emerald-600 text-emerald-50 shadow-inner"
-            : "text-emerald-200 hover:text-emerald-50"
+          "rounded-full px-3 py-1 font-semibold transition",
+          mode === "noirjack"
+            ? "bg-white/20 text-white shadow-inner"
+            : "text-white/70 hover:text-white"
         )}
-        aria-pressed={mode === "mobile"}
-        aria-label="Switch to mobile-first UI"
+        aria-pressed={mode === "noirjack"}
+        aria-label="Switch to NoirJack UI"
       >
-        Mobile
+        NoirJack
       </button>
     </div>
   );

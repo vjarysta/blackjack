@@ -3,7 +3,7 @@ import { Table } from "../components/Table";
 import { useGameStore } from "../store/useGameStore";
 import { Button } from "../components/ui/button";
 import { isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
-import { MobileTable } from "../components/mobile/MobileTable";
+import { NoirJackTable } from "../components/noirjack/NoirJackTable";
 import { useDisplayMode } from "../ui/displayMode";
 import { UIModeToggle } from "../components/UIModeToggle";
 import type { DisplayMode } from "../ui/displayMode";
@@ -77,9 +77,9 @@ export const App: React.FC = () => {
     />
   );
 
-  if (displayMode === "mobile") {
+  if (displayMode === "noirjack") {
     return (
-      <MobileTable
+      <NoirJackTable
         game={game}
         coachMode={coachMode}
         actions={actions}
