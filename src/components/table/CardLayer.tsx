@@ -39,6 +39,7 @@ const MIN_CLUSTER_GAP = 24;
 const SHIFT_LIMIT_BASE = 140;
 const CARD_WIDTH = 92;
 const CARD_HEIGHT = 132;
+const CLUSTER_VERTICAL_PADDING = 12;
 const CARD_GAP = 12;
 const DEALER_GAP = 16;
 const CARD_STEP = CARD_WIDTH + CARD_GAP;
@@ -276,6 +277,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   const clusterRefs = React.useRef(new Map<number, HTMLDivElement | null>());
   const clusterRefCallbacks = React.useRef(new Map<number, (node: HTMLDivElement | null) => void>());
   const [clusterSizes, setClusterSizes] = React.useState<Record<number, SeatClusterSize>>({});
+  const [clusterBaselines, setClusterBaselines] = React.useState<Record<number, number>>({});
 
   const getClusterRef = React.useCallback(
     (seatIndex: number) => {
@@ -320,6 +322,42 @@ export const CardLayer: React.FC<CardLayerProps> = ({
     () => resolveSeatLayouts(seatsForMode, dimensions, clusterSizes),
     [seatsForMode, dimensions, clusterSizes]
   );
+
+  React.useEffect(() => {
+    setClusterBaselines((previous) => {
+      let next: Record<number, number> | null = null;
+
+      const ensureNext = () => {
+        if (!next) {
+          next = { ...previous };
+        }
+        return next;
+      };
+
+      seatLayouts.forEach((layout) => {
+        const {
+          seat: { index, hands },
+          size
+        } = layout;
+
+        if (hands.length === 0) {
+          if (previous[index] !== undefined) {
+            const draft = ensureNext();
+            delete draft[index];
+          }
+          return;
+        }
+
+        const existing = previous[index];
+        if (existing === undefined || size.height < existing - 0.5) {
+          const draft = ensureNext();
+          draft[index] = size.height;
+        }
+      });
+
+      return next ?? previous;
+    });
+  }, [seatLayouts]);
 
   const anchorPoints = React.useMemo(() => getTableAnchorPoints(dimensions), [dimensions]);
   const shoeOrigin = React.useMemo(
@@ -442,7 +480,12 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         const isActiveSeat = game.activeSeatIndex === seat.index;
         const hands = seat.hands.length > 0 ? seat.hands : [];
         const clusterTop = position.y - layout.size.height / 2;
-        const cardTop = clusterTop + 12;
+        const baseHeight = clusterBaselines[seat.index];
+        const extraHeight = baseHeight ? Math.max(0, layout.size.height - baseHeight) : 0;
+        const cardTop =
+          clusterTop +
+          CLUSTER_VERTICAL_PADDING +
+          (orientation === "up" && baseHeight ? extraHeight / 2 : 0);
         const readyBadge =
           hands.length === 0 && seat.baseBet > 0 ? (
             <span
