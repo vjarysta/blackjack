@@ -226,13 +226,8 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const previousRoundRef = React.useRef(game.roundCount);
 
   const [coachFeedback, setCoachFeedback] = React.useState<CoachFeedback | null>(null);
-  const coachFeedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearCoachFeedback = React.useCallback(() => {
-    if (coachFeedbackTimerRef.current) {
-      clearTimeout(coachFeedbackTimerRef.current);
-      coachFeedbackTimerRef.current = null;
-    }
     setCoachFeedback(null);
   }, []);
 
@@ -240,21 +235,20 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
     (feedback: CoachFeedback) => {
       clearCoachFeedback();
       setCoachFeedback(feedback);
-      coachFeedbackTimerRef.current = window.setTimeout(() => {
-        setCoachFeedback(null);
-        coachFeedbackTimerRef.current = null;
-      }, 1900);
     },
     [clearCoachFeedback]
   );
-
-  React.useEffect(() => () => clearCoachFeedback(), [clearCoachFeedback]);
 
   React.useEffect(() => {
     if (coachMode !== "feedback") {
       clearCoachFeedback();
     }
   }, [coachMode, clearCoachFeedback]);
+
+  const handleNextRound = React.useCallback(() => {
+    clearCoachFeedback();
+    onNextRound();
+  }, [clearCoachFeedback, onNextRound]);
 
   const clearBannerTimers = React.useCallback(() => {
     if (exitTimerRef.current) {
@@ -388,7 +382,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               onDeal={onDeal}
               onFinishInsurance={onFinishInsurance}
               onPlayDealer={onPlayDealer}
-              onNextRound={onNextRound}
+              onNextRound={handleNextRound}
               onHit={onHit}
               onStand={onStand}
               onDouble={onDouble}
