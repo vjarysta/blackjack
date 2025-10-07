@@ -5,6 +5,7 @@ import { RuleBadges } from "./RuleBadges";
 import { TableLayout } from "./table/TableLayout";
 import type { ChipDenomination } from "../theme/palette";
 import { filterSeatsForMode, isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
+import { CoachToggle } from "./CoachToggle";
 
 interface TableProps {
   game: GameState;
@@ -137,27 +138,30 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-emerald-300 sm:grid-cols-5">
-            <div>
-              <p className="text-emerald-400/70">Round</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.roundCount}</p>
+          <div className="flex flex-col items-end gap-2">
+            <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-emerald-300 sm:grid-cols-5">
+              <div>
+                <p className="text-emerald-400/70">Round</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.roundCount}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Phase</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.phase}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Cards</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.cards.length}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Discard</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.discard.length}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Penetration</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{penetrationPercentage(game)}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-emerald-400/70">Phase</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.phase}</p>
-            </div>
-            <div>
-              <p className="text-emerald-400/70">Cards</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.cards.length}</p>
-            </div>
-            <div>
-              <p className="text-emerald-400/70">Discard</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.discard.length}</p>
-            </div>
-            <div>
-              <p className="text-emerald-400/70">Penetration</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{penetrationPercentage(game)}</p>
-            </div>
+            <CoachToggle />
           </div>
         </div>
       </header>

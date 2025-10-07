@@ -6,6 +6,10 @@ import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { formatCurrency } from "../../utils/currency";
 import { ANIM, REDUCED } from "../../utils/animConstants";
 import { filterSeatsForMode } from "../../ui/config";
+import { getRecommendation, toDealerRank, type Action, type PlayerContext } from "../../utils/basicStrategy";
+import type { CoachMode } from "../../store/useCoachStore";
+import type { CoachFeedback } from "../../utils/coach";
+import { formatActionLabel } from "../../utils/coach";
 
 interface RoundActionBarProps {
   game: GameState;
@@ -18,6 +22,9 @@ interface RoundActionBarProps {
   onDouble: () => void;
   onSplit: () => void;
   onSurrender: () => void;
+  coachMode: CoachMode;
+  onCoachFeedback: (feedback: CoachFeedback) => void;
+  feedback: CoachFeedback | null;
 }
 
 const hasReadySeat = (game: GameState): boolean => {
@@ -53,7 +60,10 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
   onStand,
   onDouble,
   onSplit,
-  onSurrender
+  onSurrender,
+  coachMode,
+  onCoachFeedback,
+  feedback
 }) => {
   const activeHand = findActiveHand(game);
   const parentSeat = activeHand ? game.seats[activeHand.parentSeatIndex] : null;
@@ -72,8 +82,72 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
     };
   }, [activeHand, game.bankroll, game.phase, game.rules, parentSeat]);
 
+  const dealerUpcard = game.dealer.upcard;
+
+  const playerContext: PlayerContext | null = React.useMemo(() => {
+    if (!actionContext || !activeHand || !dealerUpcard) {
+      return null;
+    }
+    return {
+      dealerUpcard: { rank: toDealerRank(dealerUpcard.rank) },
+      cards: activeHand.cards.map((card) => ({ rank: card.rank })),
+      isInitialTwoCards: activeHand.cards.length === 2 && !activeHand.hasActed,
+      afterSplit: Boolean(activeHand.isSplitHand),
+      legal: {
+        hit: actionContext.hit,
+        stand: actionContext.stand,
+        double: actionContext.double,
+        split: actionContext.split,
+        surrender: actionContext.surrender
+      }
+    };
+  }, [actionContext, activeHand, dealerUpcard]);
+
+  const recommendation = React.useMemo(() => {
+    if (!playerContext) {
+      return null;
+    }
+    return getRecommendation(playerContext, game.rules);
+  }, [game.rules, playerContext]);
+
+  const recommendedAction: Action | null = React.useMemo(() => {
+    if (!recommendation) {
+      return null;
+    }
+    return recommendation.fallback ?? recommendation.best;
+  }, [recommendation]);
+
   const showActions = game.phase !== "betting" || hasReadySeat(game);
   const fadeDuration = REDUCED ? 0 : ANIM.fade.duration;
+
+  const handlePlayerAction = React.useCallback(
+    (action: Action, callback: () => void) => {
+      callback();
+      if (coachMode !== "feedback" || !recommendation || !recommendedAction) {
+        return;
+      }
+      const correct = action === recommendedAction;
+      const message = correct
+        ? `Good move — ${recommendation.reasoning}`
+        : `Better: ${formatActionLabel(recommendedAction)} — ${recommendation.reasoning}`;
+      onCoachFeedback({
+        severity: correct ? "correct" : "better",
+        message,
+        action: recommendedAction
+      });
+    },
+    [coachMode, onCoachFeedback, recommendation, recommendedAction]
+  );
+
+  const coachTitle =
+    recommendation && recommendedAction
+      ? `Best move (Basic Strategy): ${formatActionLabel(recommendedAction)}. ${recommendation.reasoning}`
+      : undefined;
+
+  const feedbackStyle =
+    feedback?.severity === "correct"
+      ? "border-emerald-400/60 bg-emerald-600/25 text-emerald-100"
+      : "border-amber-400/60 bg-amber-500/20 text-amber-100";
 
   return (
     <motion.div
@@ -104,21 +178,62 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
           <span className="hidden text-[10px] uppercase tracking-[0.4em] text-emerald-200 md:inline">
             Active Bet {formatCurrency(actionContext.hand.bet)}
           </span>
-          <Button size="sm" onClick={onHit} disabled={!actionContext.hit}>
+          <Button
+            size="sm"
+            onClick={() => handlePlayerAction("hit", onHit)}
+            disabled={!actionContext.hit}
+            data-coach={coachMode === "live" && recommendedAction === "hit" ? "best" : undefined}
+            title={coachMode === "live" && recommendedAction === "hit" ? coachTitle : undefined}
+          >
             Hit
           </Button>
-          <Button size="sm" variant="outline" onClick={onStand} disabled={!actionContext.stand}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handlePlayerAction("stand", onStand)}
+            disabled={!actionContext.stand}
+            data-coach={coachMode === "live" && recommendedAction === "stand" ? "best" : undefined}
+            title={coachMode === "live" && recommendedAction === "stand" ? coachTitle : undefined}
+          >
             Stand
           </Button>
-          <Button size="sm" variant="outline" onClick={onDouble} disabled={!actionContext.double}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handlePlayerAction("double", onDouble)}
+            disabled={!actionContext.double}
+            data-coach={coachMode === "live" && recommendedAction === "double" ? "best" : undefined}
+            title={coachMode === "live" && recommendedAction === "double" ? coachTitle : undefined}
+          >
             Double
           </Button>
-          <Button size="sm" variant="outline" onClick={onSplit} disabled={!actionContext.split}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handlePlayerAction("split", onSplit)}
+            disabled={!actionContext.split}
+            data-coach={coachMode === "live" && recommendedAction === "split" ? "best" : undefined}
+            title={coachMode === "live" && recommendedAction === "split" ? coachTitle : undefined}
+          >
             Split
           </Button>
-          <Button size="sm" variant="outline" onClick={onSurrender} disabled={!actionContext.surrender}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handlePlayerAction("surrender", onSurrender)}
+            disabled={!actionContext.surrender}
+            data-coach={coachMode === "live" && recommendedAction === "surrender" ? "best" : undefined}
+            title={coachMode === "live" && recommendedAction === "surrender" ? coachTitle : undefined}
+          >
             Surrender
           </Button>
+          {feedback && coachMode === "feedback" ? (
+            <div
+              className={`ml-2 rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.28em] ${feedbackStyle}`}
+            >
+              {feedback.message}
+            </div>
+          ) : null}
         </div>
       )}
     </motion.div>

@@ -10,6 +10,9 @@ import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar } from "../hud/RoundActionBar";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
 import { ResultBanner, type ResultKind } from "./ResultBanner";
+import { useCoachStore } from "../../store/useCoachStore";
+import type { CoachFeedback } from "../../utils/coach";
+import { formatActionLabel } from "../../utils/coach";
 
 const MIN_AMOUNT = 0.005;
 
@@ -216,6 +219,66 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const hudWidth = Math.max(scaledWidth, containerWidth - STAGE_PADDING * 2);
 
   const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
+  const coachMode = useCoachStore((state) => state.coachMode);
+  const feedbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [coachFeedback, setCoachFeedback] = React.useState<CoachFeedback | null>(null);
+
+  const clearCoachFeedback = React.useCallback(() => {
+    if (feedbackTimerRef.current) {
+      clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
+    }
+    setCoachFeedback(null);
+  }, []);
+
+  const pushCoachFeedback = React.useCallback(
+    (feedback: CoachFeedback) => {
+      if (coachMode !== "feedback") {
+        return;
+      }
+      clearCoachFeedback();
+      setCoachFeedback(feedback);
+      if (typeof window !== "undefined") {
+        feedbackTimerRef.current = window.setTimeout(() => {
+          setCoachFeedback(null);
+          feedbackTimerRef.current = null;
+        }, 1800);
+      }
+    },
+    [clearCoachFeedback, coachMode]
+  );
+
+  React.useEffect(() => () => clearCoachFeedback(), [clearCoachFeedback]);
+
+  React.useEffect(() => {
+    if (coachMode !== "feedback") {
+      clearCoachFeedback();
+    }
+  }, [clearCoachFeedback, coachMode]);
+
+  const handleInsurance = React.useCallback(
+    (seatIndex: number, handId: string, amount: number) => {
+      onInsurance(seatIndex, handId, amount);
+      pushCoachFeedback({
+        severity: "better",
+        message: `Better: ${formatActionLabel("insurance-skip")} — Basic strategy: Skip insurance.`,
+        action: "insurance-skip"
+      });
+    },
+    [onInsurance, pushCoachFeedback]
+  );
+
+  const handleDeclineInsurance = React.useCallback(
+    (seatIndex: number, handId: string) => {
+      onDeclineInsurance(seatIndex, handId);
+      pushCoachFeedback({
+        severity: "correct",
+        message: `Good move — Basic strategy: Skip insurance.`,
+        action: "insurance-skip"
+      });
+    },
+    [onDeclineInsurance, pushCoachFeedback]
+  );
 
   const [bannerState, setBannerState] = React.useState<BannerState | null>(null);
   const exitTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -319,8 +382,9 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
             <CardLayer
               game={game}
               dimensions={{ width: BASE_W, height: BASE_H }}
-              onInsurance={onInsurance}
-              onDeclineInsurance={onDeclineInsurance}
+              onInsurance={handleInsurance}
+              onDeclineInsurance={handleDeclineInsurance}
+              coachMode={coachMode}
             />
             {bannerState ? (
               <ResultBanner
@@ -355,6 +419,9 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               onDouble={onDouble}
               onSplit={onSplit}
               onSurrender={onSurrender}
+              coachMode={coachMode}
+              onCoachFeedback={pushCoachFeedback}
+              feedback={coachFeedback}
             />
           </div>
         </div>

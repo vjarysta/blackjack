@@ -10,12 +10,14 @@ import { AnimatedCard } from "../animation/AnimatedCard";
 import { FlipCard } from "../animation/FlipCard";
 import { DEAL_STAGGER } from "../../utils/animConstants";
 import { filterSeatsForMode } from "../../ui/config";
+import type { CoachMode } from "../../store/useCoachStore";
 
 interface CardLayerProps {
   game: GameState;
   dimensions: { width: number; height: number };
   onInsurance: (seatIndex: number, handId: string, amount: number) => void;
   onDeclineInsurance: (seatIndex: number, handId: string) => void;
+  coachMode: CoachMode;
 }
 
 interface SeatClusterSize {
@@ -91,7 +93,8 @@ const renderInsurancePrompt = (
   hand: Hand,
   game: GameState,
   onInsurance: CardLayerProps["onInsurance"],
-  onDeclineInsurance: CardLayerProps["onDeclineInsurance"]
+  onDeclineInsurance: CardLayerProps["onDeclineInsurance"],
+  coachMode: CoachMode
 ): React.ReactNode => {
   const alreadyResolved = hand.insuranceBet !== undefined;
   if (!seat.occupied || game.phase !== "insurance" || alreadyResolved || hand.isResolved) {
@@ -122,6 +125,8 @@ const renderInsurancePrompt = (
           variant="outline"
           className="h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
           onClick={() => onDeclineInsurance(seat.index, hand.id)}
+          data-coach={coachMode === "live" ? "best" : undefined}
+          title={coachMode === "live" ? "Best move (Basic Strategy): Skip Insurance." : undefined}
         >
           Skip
         </Button>
@@ -238,7 +243,8 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   game,
   dimensions,
   onInsurance,
-  onDeclineInsurance
+  onDeclineInsurance,
+  coachMode
 }) => {
   const clusterRefs = React.useRef(new Map<number, HTMLDivElement | null>());
   const clusterRefCallbacks = React.useRef(new Map<number, (node: HTMLDivElement | null) => void>());
@@ -484,7 +490,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         });
 
         const promptElements = hands
-          .map((hand) => renderInsurancePrompt(seat, hand, game, onInsurance, onDeclineInsurance))
+          .map((hand) => renderInsurancePrompt(seat, hand, game, onInsurance, onDeclineInsurance, coachMode))
           .filter(Boolean) as React.ReactNode[];
 
         const promptStack =
