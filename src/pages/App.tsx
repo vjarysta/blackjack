@@ -9,6 +9,8 @@ export const App: React.FC = () => {
     game,
     error,
     clearError,
+    coachMode,
+    setCoachMode,
     sit,
     leave,
     addChip,
@@ -55,6 +57,7 @@ export const App: React.FC = () => {
         )}
         <Table
           game={game}
+          coachMode={coachMode}
           actions={{
             sit,
             leave,
@@ -73,6 +76,7 @@ export const App: React.FC = () => {
             playDealer,
             nextRound
           }}
+          onCoachModeChange={setCoachMode}
         />
       </div>
     </main>

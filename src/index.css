@@ -247,3 +247,34 @@ button:disabled {
     opacity: 1;
   }
 }
+
+[data-coach="best"] {
+  box-shadow: 0 0 0 2px rgba(200, 162, 74, 0.55), 0 0 18px rgba(200, 162, 74, 0.35);
+  position: relative;
+}
+
+[data-coach="best"]::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(200, 162, 74, 0.15), transparent 70%);
+  animation: coachPulse 1.8s ease-in-out infinite;
+}
+
+@keyframes coachPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-coach="best"]::after {
+    animation: none;
+  }
+}

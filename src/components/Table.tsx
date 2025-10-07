@@ -5,9 +5,12 @@ import { RuleBadges } from "./RuleBadges";
 import { TableLayout } from "./table/TableLayout";
 import type { ChipDenomination } from "../theme/palette";
 import { filterSeatsForMode, isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
+import type { CoachMode } from "../store/useGameStore";
+import { CoachToggle } from "./CoachToggle";
 
 interface TableProps {
   game: GameState;
+  coachMode: CoachMode;
   actions: {
     sit: (seatIndex: number) => void;
     leave: (seatIndex: number) => void;
@@ -26,6 +29,7 @@ interface TableProps {
     playDealer: () => void;
     nextRound: () => void;
   };
+  onCoachModeChange: (mode: CoachMode) => void;
 }
 
 const penetrationPercentage = (game: GameState): string => {
@@ -37,7 +41,7 @@ const penetrationPercentage = (game: GameState): string => {
   return `${Math.round(penetration * 100)}%`;
 };
 
-export const Table: React.FC<TableProps> = ({ game, actions }) => {
+export const Table: React.FC<TableProps> = ({ game, coachMode, actions, onCoachModeChange }) => {
   const [activeChip, setActiveChip] = React.useState<ChipDenomination>(25);
   const headerRef = React.useRef<HTMLDivElement | null>(null);
   const [viewportHeight, setViewportHeight] = React.useState(
@@ -118,7 +122,7 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
         ref={headerRef}
         className="rounded-3xl border border-[#c8a24a]/35 bg-[#0c2c22]/65 px-4 py-2 shadow-[0_16px_36px_rgba(0,0,0,0.4)] backdrop-blur"
       >
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold uppercase tracking-[0.3em] text-emerald-200">
               <span>Casino Blackjack</span>
@@ -137,26 +141,29 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-emerald-300 sm:grid-cols-5">
-            <div>
-              <p className="text-emerald-400/70">Round</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.roundCount}</p>
-            </div>
-            <div>
-              <p className="text-emerald-400/70">Phase</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.phase}</p>
-            </div>
-            <div>
-              <p className="text-emerald-400/70">Cards</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.cards.length}</p>
-            </div>
-            <div>
-              <p className="text-emerald-400/70">Discard</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.discard.length}</p>
-            </div>
-            <div>
-              <p className="text-emerald-400/70">Penetration</p>
-              <p className="mt-0.5 text-base font-semibold text-emerald-50">{penetrationPercentage(game)}</p>
+          <div className="flex flex-col items-stretch gap-3 sm:items-end">
+            <CoachToggle mode={coachMode} onChange={onCoachModeChange} />
+            <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-[10px] uppercase tracking-[0.18em] text-emerald-300 sm:grid-cols-5">
+              <div>
+                <p className="text-emerald-400/70">Round</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.roundCount}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Phase</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.phase}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Cards</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.cards.length}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Discard</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{game.shoe.discard.length}</p>
+              </div>
+              <div>
+                <p className="text-emerald-400/70">Penetration</p>
+                <p className="mt-0.5 text-base font-semibold text-emerald-50">{penetrationPercentage(game)}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -169,6 +176,7 @@ export const Table: React.FC<TableProps> = ({ game, actions }) => {
       >
         <TableLayout
           game={game}
+          coachMode={coachMode}
           activeChip={activeChip}
           onSelectChip={handleSelectChip}
           onSit={restrictedActions.sit}
