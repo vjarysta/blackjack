@@ -1,11 +1,14 @@
 import { create } from "zustand";
 import {
+  beginDealerPlay,
   convertAmountToChips,
   deal,
+  dealerDrawCard,
+  dealerShouldHit,
   declineInsurance,
+  finalizeDealerHand,
   finishInsurance,
   initGame,
-  playDealer,
   playerDouble,
   playerHit,
   playerSplit,
@@ -20,6 +23,7 @@ import {
 } from "../engine/engine";
 import type { GameState, Seat } from "../engine/types";
 import { isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
+import { ANIM, DEAL_STAGGER, REDUCED } from "../utils/animConstants";
 
 const BANKROLL_KEY = "blackjack_bankroll";
 const SEATS_KEY = "blackjack_seats";
@@ -144,232 +148,323 @@ const ensureChipArray = (seat: Seat): number[] => {
   return seat.chips;
 };
 
-export const useGameStore = create<GameStore>((set) => ({
-  game: hydrateGame(),
-  error: null,
-  coachMode: hydrateCoachMode(),
-  clearError: () => set({ error: null }),
-  sit: (seatIndex) => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => sit(draft, seatIndex));
-      persistState(nextGame);
-      return { game: nextGame, error: null };
+export const useGameStore = create<GameStore>((set, get) => {
+  let dealerSequence: Promise<void> | null = null;
+
+  const waitForDealAnimation = (): Promise<void> => {
+    if (REDUCED) {
+      return Promise.resolve();
+    }
+    const durationMs = (ANIM.deal.duration + DEAL_STAGGER) * 1000;
+    return new Promise((resolve) => {
+      setTimeout(resolve, durationMs);
     });
-  },
-  leave: (seatIndex) => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => leave(draft, seatIndex));
-      persistState(nextGame);
-      return { game: nextGame, error: null };
+  };
+
+  const waitForFlipAnimation = (): Promise<void> => {
+    if (REDUCED) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      setTimeout(resolve, ANIM.flip.duration * 1000);
     });
-  },
-  setBet: (seatIndex, amount) => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => setBet(draft, seatIndex, amount));
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  addChip: (seatIndex, denom) => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => {
-        const seat = draft.seats[seatIndex];
-        const chips = ensureChipArray(seat);
-        chips.push(Math.floor(denom));
-        seat.baseBet = sumChips(chips);
+  };
+
+  const triggerDealerSequence = (): Promise<void> => {
+    if (dealerSequence) {
+      return dealerSequence;
+    }
+    dealerSequence = (async () => {
+      const currentGame = get().game;
+      if (currentGame.phase !== "dealerPlay") {
+        return;
+      }
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => {
+          beginDealerPlay(draft);
+        });
+        persistState(nextGame);
+        return { game: nextGame, error: null };
       });
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  removeChipValue: (seatIndex, denom) => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => {
-        const seat = draft.seats[seatIndex];
-        const chips = ensureChipArray(seat);
-        const targetIndex = chips.lastIndexOf(Math.floor(denom));
-        if (targetIndex >= 0) {
-          chips.splice(targetIndex, 1);
-          seat.baseBet = sumChips(chips);
+
+      let shouldContinue = dealerShouldHit(get().game);
+      let isFirstDraw = true;
+      let drewAnyCard = false;
+      while (shouldContinue) {
+        if (isFirstDraw) {
+          await waitForFlipAnimation();
+          isFirstDraw = false;
+        } else {
+          await waitForDealAnimation();
         }
-      });
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  removeTopChip: (seatIndex) => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => {
-        const seat = draft.seats[seatIndex];
-        const chips = ensureChipArray(seat);
-        if (chips.length > 0) {
-          chips.pop();
-          seat.baseBet = sumChips(chips);
+        let drewCard = false;
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => {
+            drewCard = dealerDrawCard(draft);
+          });
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+        if (!drewCard) {
+          break;
         }
-      });
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  deal: () => {
-    try {
-      set((store) => {
-        const nextGame = mutateGame(store.game, (draft) => deal(draft));
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  playerHit: () => {
-    try {
+        drewAnyCard = true;
+        shouldContinue = dealerShouldHit(get().game);
+      }
+
+      if (drewAnyCard) {
+        await waitForDealAnimation();
+      }
+
       set((store) => {
         const nextGame = mutateGame(store.game, (draft) => {
-          playerHit(draft);
-          if (draft.phase === "dealerPlay") {
-            playDealer(draft);
-            settleAllHands(draft);
-          }
-        });
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  playerStand: () => {
-    try {
-      set((store) => {
-        const nextGame = mutateGame(store.game, (draft) => {
-          playerStand(draft);
-          if (draft.phase === "dealerPlay") {
-            playDealer(draft);
-            settleAllHands(draft);
-          }
-        });
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  playerDouble: () => {
-    try {
-      set((store) => {
-        const nextGame = mutateGame(store.game, (draft) => {
-          playerDouble(draft);
-          if (draft.phase === "dealerPlay") {
-            playDealer(draft);
-            settleAllHands(draft);
-          }
-        });
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  playerSplit: () => {
-    try {
-      set((store) => {
-        const nextGame = mutateGame(store.game, (draft) => playerSplit(draft));
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  playerSurrender: () => {
-    try {
-      set((store) => {
-        const nextGame = mutateGame(store.game, (draft) => {
-          playerSurrender(draft);
-          if (draft.phase === "dealerPlay") {
-            playDealer(draft);
-            settleAllHands(draft);
-          }
-        });
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  takeInsurance: (seatIndex, handId, amount) => {
-    try {
-      set((store) => {
-        const nextGame = mutateGame(store.game, (draft) => {
-          takeInsurance(draft, seatIndex, handId, amount);
-        });
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  declineInsurance: (seatIndex, handId) => {
-    try {
-      set((store) => {
-        const nextGame = mutateGame(store.game, (draft) => {
-          declineInsurance(draft, seatIndex, handId);
-        });
-        persistState(nextGame);
-        return { game: nextGame, error: null };
-      });
-    } catch (error) {
-      set({ error: (error as Error).message });
-    }
-  },
-  finishInsurance: () => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => {
-        finishInsurance(draft);
-        if (draft.phase === "dealerPlay") {
-          playDealer(draft);
+          finalizeDealerHand(draft);
           settleAllHands(draft);
-        } else if (draft.phase === "settlement") {
-          settleAllHands(draft);
+        });
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    })().finally(() => {
+      dealerSequence = null;
+    });
+    return dealerSequence;
+  };
+
+  return {
+    game: hydrateGame(),
+    error: null,
+    coachMode: hydrateCoachMode(),
+    clearError: () => set({ error: null }),
+    sit: (seatIndex) => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => sit(draft, seatIndex));
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    },
+    leave: (seatIndex) => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => leave(draft, seatIndex));
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    },
+    setBet: (seatIndex, amount) => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => setBet(draft, seatIndex, amount));
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    },
+    addChip: (seatIndex, denom) => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => {
+          const seat = draft.seats[seatIndex];
+          const chips = ensureChipArray(seat);
+          chips.push(Math.floor(denom));
+          seat.baseBet = sumChips(chips);
+        });
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    },
+    removeChipValue: (seatIndex, denom) => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => {
+          const seat = draft.seats[seatIndex];
+          const chips = ensureChipArray(seat);
+          const targetIndex = chips.lastIndexOf(Math.floor(denom));
+          if (targetIndex >= 0) {
+            chips.splice(targetIndex, 1);
+            seat.baseBet = sumChips(chips);
+          }
+        });
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    },
+    removeTopChip: (seatIndex) => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => {
+          const seat = draft.seats[seatIndex];
+          const chips = ensureChipArray(seat);
+          if (chips.length > 0) {
+            chips.pop();
+            seat.baseBet = sumChips(chips);
+          }
+        });
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    },
+    deal: () => {
+      try {
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => deal(draft));
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    playerHit: () => {
+      try {
+        let shouldTriggerDealer = false;
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => {
+            playerHit(draft);
+            if (draft.phase === "dealerPlay") {
+              shouldTriggerDealer = true;
+            }
+          });
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+        if (shouldTriggerDealer) {
+          void triggerDealerSequence();
         }
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    playerStand: () => {
+      try {
+        let shouldTriggerDealer = false;
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => {
+            playerStand(draft);
+            if (draft.phase === "dealerPlay") {
+              shouldTriggerDealer = true;
+            }
+          });
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+        if (shouldTriggerDealer) {
+          void triggerDealerSequence();
+        }
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    playerDouble: () => {
+      try {
+        let shouldTriggerDealer = false;
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => {
+            playerDouble(draft);
+            if (draft.phase === "dealerPlay") {
+              shouldTriggerDealer = true;
+            }
+          });
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+        if (shouldTriggerDealer) {
+          void triggerDealerSequence();
+        }
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    playerSplit: () => {
+      try {
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => playerSplit(draft));
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    playerSurrender: () => {
+      try {
+        let shouldTriggerDealer = false;
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => {
+            playerSurrender(draft);
+            if (draft.phase === "dealerPlay") {
+              shouldTriggerDealer = true;
+            }
+          });
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+        if (shouldTriggerDealer) {
+          void triggerDealerSequence();
+        }
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    takeInsurance: (seatIndex, handId, amount) => {
+      try {
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => {
+            takeInsurance(draft, seatIndex, handId, amount);
+          });
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    declineInsurance: (seatIndex, handId) => {
+      try {
+        set((store) => {
+          const nextGame = mutateGame(store.game, (draft) => {
+            declineInsurance(draft, seatIndex, handId);
+          });
+          persistState(nextGame);
+          return { game: nextGame, error: null };
+        });
+      } catch (error) {
+        set({ error: (error as Error).message });
+      }
+    },
+    finishInsurance: () => {
+      let shouldTriggerDealer = false;
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => {
+          finishInsurance(draft);
+          if (draft.phase === "dealerPlay") {
+            shouldTriggerDealer = true;
+          } else if (draft.phase === "settlement") {
+            settleAllHands(draft);
+          }
+        });
+        persistState(nextGame);
+        return { game: nextGame, error: null };
       });
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  playDealer: () => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => {
-        playDealer(draft);
-        settleAllHands(draft);
+      if (shouldTriggerDealer) {
+        void triggerDealerSequence();
+      }
+    },
+    playDealer: () => {
+      void triggerDealerSequence();
+    },
+    settle: () => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => settleAllHands(draft));
+        persistState(nextGame);
+        return { game: nextGame, error: null };
       });
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  settle: () => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => settleAllHands(draft));
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  nextRound: () => {
-    set((store) => {
-      const nextGame = mutateGame(store.game, (draft) => prepareNextRound(draft));
-      persistState(nextGame);
-      return { game: nextGame, error: null };
-    });
-  },
-  setCoachMode: (mode) => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(COACH_MODE_KEY, mode);
+    },
+    nextRound: () => {
+      set((store) => {
+        const nextGame = mutateGame(store.game, (draft) => prepareNextRound(draft));
+        persistState(nextGame);
+        return { game: nextGame, error: null };
+      });
+    },
+    setCoachMode: (mode) => {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(COACH_MODE_KEY, mode);
+      }
+      set({ coachMode: mode });
     }
-    set({ coachMode: mode });
-  }
-}));
+  };
+});

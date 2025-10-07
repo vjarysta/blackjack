@@ -448,7 +448,7 @@ export const advanceToNextHandOrSeat = (state: GameState): void => {
   moveToNextHand(state);
 };
 
-const dealerShouldHit = (state: GameState): boolean => {
+export const dealerShouldHit = (state: GameState): boolean => {
   const dealerHand = state.dealer.hand;
   if (isBust(dealerHand)) {
     return false;
@@ -467,19 +467,44 @@ const dealerShouldHit = (state: GameState): boolean => {
   return false;
 };
 
-export const playDealer = (state: GameState): void => {
+export const beginDealerPlay = (state: GameState): void => {
   if (state.phase !== "dealerPlay") {
     return;
   }
   state.dealer.hand.isResolved = false;
-  while (dealerShouldHit(state)) {
-    const card = drawCard(state.shoe);
-    state.dealer.hand.cards.push(card);
-    appendLog(state, `Dealer draws ${card.rank}${card.suit}`);
+};
+
+export const dealerDrawCard = (state: GameState): boolean => {
+  if (state.phase !== "dealerPlay") {
+    return false;
+  }
+  if (!dealerShouldHit(state)) {
+    return false;
+  }
+  const card = drawCard(state.shoe);
+  state.dealer.hand.cards.push(card);
+  appendLog(state, `Dealer draws ${card.rank}${card.suit}`);
+  return true;
+};
+
+export const finalizeDealerHand = (state: GameState): void => {
+  if (state.phase !== "dealerPlay") {
+    return;
   }
   const total = bestTotal(state.dealer.hand);
   appendLog(state, `Dealer stands with ${total}`);
   nextPhase(state, "settlement");
+};
+
+export const playDealer = (state: GameState): void => {
+  if (state.phase !== "dealerPlay") {
+    return;
+  }
+  beginDealerPlay(state);
+  while (dealerDrawCard(state)) {
+    // keep drawing until dealer should stand
+  }
+  finalizeDealerHand(state);
 };
 
 const blackjackPayoutMultiplier = (rules: RuleConfig): number => {
