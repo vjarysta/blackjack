@@ -7,9 +7,11 @@ import { BetSpotOverlay } from "./BetSpotOverlay";
 import { CardLayer } from "./CardLayer";
 import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
-import { RoundActionBar } from "../hud/RoundActionBar";
+import { RoundActionBar, type CoachFeedback } from "../hud/RoundActionBar";
+import { CoachFeedbackPanel } from "../hud/CoachFeedbackPanel";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
 import { ResultBanner, type ResultKind } from "./ResultBanner";
+import type { CoachMode } from "../../store/useGameStore";
 
 const MIN_AMOUNT = 0.005;
 
@@ -168,6 +170,7 @@ const resolveResultKind = (outcome: OutcomeSummary): ResultKind => {
 
 interface TableLayoutProps {
   game: GameState;
+  coachMode: CoachMode;
   activeChip: ChipDenomination;
   onSelectChip: (value: ChipDenomination) => void;
   onSit: (seatIndex: number) => void;
@@ -190,6 +193,7 @@ interface TableLayoutProps {
 
 export const TableLayout: React.FC<TableLayoutProps> = ({
   game,
+  coachMode,
   activeChip,
   onSelectChip,
   onSit,
@@ -221,6 +225,31 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const exitTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const removeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousRoundRef = React.useRef(game.roundCount);
+
+  const [coachFeedback, setCoachFeedback] = React.useState<CoachFeedback | null>(null);
+
+  const clearCoachFeedback = React.useCallback(() => {
+    setCoachFeedback(null);
+  }, []);
+
+  const showCoachFeedback = React.useCallback(
+    (feedback: CoachFeedback) => {
+      clearCoachFeedback();
+      setCoachFeedback(feedback);
+    },
+    [clearCoachFeedback]
+  );
+
+  React.useEffect(() => {
+    if (coachMode !== "feedback") {
+      clearCoachFeedback();
+    }
+  }, [coachMode, clearCoachFeedback]);
+
+  const handleNextRound = React.useCallback(() => {
+    clearCoachFeedback();
+    onNextRound();
+  }, [clearCoachFeedback, onNextRound]);
 
   const clearBannerTimers = React.useCallback(() => {
     if (exitTimerRef.current) {
@@ -287,6 +316,7 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
       data-testid="table-layout"
       className="relative flex h-full w-full flex-col items-center overflow-hidden px-2 sm:px-6"
     >
+      <CoachFeedbackPanel feedback={coachFeedback} />
       <div
         className="relative flex w-full flex-1 items-center justify-center"
         style={{ paddingTop: STAGE_PADDING, paddingBottom: STAGE_PADDING }}
@@ -321,6 +351,8 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
               dimensions={{ width: BASE_W, height: BASE_H }}
               onInsurance={onInsurance}
               onDeclineInsurance={onDeclineInsurance}
+              coachMode={coachMode}
+              onCoachFeedback={showCoachFeedback}
             />
             {bannerState ? (
               <ResultBanner
@@ -346,10 +378,13 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
           <div className="flex flex-1 justify-end">
             <RoundActionBar
               game={game}
+              coachMode={coachMode}
+              feedback={coachFeedback}
+              onCoachFeedback={showCoachFeedback}
               onDeal={onDeal}
               onFinishInsurance={onFinishInsurance}
               onPlayDealer={onPlayDealer}
-              onNextRound={onNextRound}
+              onNextRound={handleNextRound}
               onHit={onHit}
               onStand={onStand}
               onDouble={onDouble}

@@ -23,6 +23,9 @@ import { isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
 
 const BANKROLL_KEY = "blackjack_bankroll";
 const SEATS_KEY = "blackjack_seats";
+const COACH_MODE_KEY = "blackjack_coach_mode";
+
+export type CoachMode = "off" | "feedback" | "live";
 
 type SeatPersist = {
   occupied: boolean;
@@ -89,9 +92,21 @@ const hydrateGame = (): GameState => {
   return base;
 };
 
+const hydrateCoachMode = (): CoachMode => {
+  if (typeof localStorage === "undefined") {
+    return "off";
+  }
+  const stored = localStorage.getItem(COACH_MODE_KEY);
+  if (stored === "feedback" || stored === "live" || stored === "off") {
+    return stored;
+  }
+  return "off";
+};
+
 type GameStore = {
   game: GameState;
   error: string | null;
+  coachMode: CoachMode;
   clearError: () => void;
   sit: (seatIndex: number) => void;
   leave: (seatIndex: number) => void;
@@ -111,6 +126,7 @@ type GameStore = {
   playDealer: () => void;
   settle: () => void;
   nextRound: () => void;
+  setCoachMode: (mode: CoachMode) => void;
 };
 
 const mutateGame = (state: GameState, mutator: (draft: GameState) => void): GameState => {
@@ -131,6 +147,7 @@ const ensureChipArray = (seat: Seat): number[] => {
 export const useGameStore = create<GameStore>((set) => ({
   game: hydrateGame(),
   error: null,
+  coachMode: hydrateCoachMode(),
   clearError: () => set({ error: null }),
   sit: (seatIndex) => {
     set((store) => {
@@ -348,5 +365,11 @@ export const useGameStore = create<GameStore>((set) => ({
       persistState(nextGame);
       return { game: nextGame, error: null };
     });
+  },
+  setCoachMode: (mode) => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(COACH_MODE_KEY, mode);
+    }
+    set({ coachMode: mode });
   }
 }));

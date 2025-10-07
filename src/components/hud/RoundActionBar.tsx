@@ -6,9 +6,20 @@ import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import { formatCurrency } from "../../utils/currency";
 import { ANIM, REDUCED } from "../../utils/animConstants";
 import { filterSeatsForMode } from "../../ui/config";
+import type { CoachMode } from "../../store/useGameStore";
+import { getRecommendation, type Action, type PlayerContext } from "../../utils/basicStrategy";
+
+export type CoachFeedback = {
+  tone: "correct" | "better" | "info";
+  message: string;
+  highlightAction?: Action;
+};
 
 interface RoundActionBarProps {
   game: GameState;
+  coachMode: CoachMode;
+  feedback: CoachFeedback | null;
+  onCoachFeedback: (feedback: CoachFeedback) => void;
   onDeal: () => void;
   onFinishInsurance: () => void;
   onPlayDealer: () => void;
@@ -43,8 +54,36 @@ const findActiveHand = (game: GameState): Hand | null => {
   return null;
 };
 
+const formatAction = (action: Action): string => {
+  switch (action) {
+    case "hit":
+      return "Hit";
+    case "stand":
+      return "Stand";
+    case "double":
+      return "Double";
+    case "split":
+      return "Split";
+    case "surrender":
+      return "Surrender";
+    case "insurance-skip":
+      return "Skip Insurance";
+    default:
+      return action;
+  }
+};
+
+const buildCorrectMessage = (action: Action): string =>
+  `Nice! ${formatAction(action)} was the right move.`;
+
+const buildMistakeMessage = (action: Action): string =>
+  `Mistake: should have chosen ${formatAction(action)}.`;
+
 export const RoundActionBar: React.FC<RoundActionBarProps> = ({
   game,
+  coachMode,
+  feedback,
+  onCoachFeedback,
   onDeal,
   onFinishInsurance,
   onPlayDealer,
@@ -71,6 +110,154 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
       surrender: canSurrender(activeHand, game.rules)
     };
   }, [activeHand, game.bankroll, game.phase, game.rules, parentSeat]);
+
+  const dealerUpcard = game.dealer.upcard;
+
+  const recommendation = React.useMemo(() => {
+    if (!actionContext || !dealerUpcard) {
+      return null;
+    }
+    const rank = dealerUpcard.rank as PlayerContext["dealerUpcard"]["rank"];
+    const context: PlayerContext = {
+      dealerUpcard: {
+        rank,
+        value10: dealerUpcard.rank === "10" || dealerUpcard.rank === "J" || dealerUpcard.rank === "Q" || dealerUpcard.rank === "K"
+      },
+      cards: actionContext.hand.cards.map((card) => ({ rank: card.rank })),
+      isInitialTwoCards:
+        actionContext.hand.cards.length === 2 && !Boolean(actionContext.hand.hasActed),
+      afterSplit: Boolean(actionContext.hand.isSplitHand),
+      legal: {
+        hit: actionContext.hit,
+        stand: actionContext.stand,
+        double: actionContext.double,
+        split: actionContext.split,
+        surrender: actionContext.surrender
+      }
+    };
+    return getRecommendation(context, game.rules);
+  }, [actionContext, dealerUpcard, game.rules]);
+
+  const recommendedAction = React.useMemo<Action | null>(() => {
+    if (!recommendation || !actionContext) {
+      return null;
+    }
+    const isLegal = (action: Action | undefined): boolean => {
+      if (!action) {
+        return false;
+      }
+      switch (action) {
+        case "hit":
+          return actionContext.hit;
+        case "stand":
+          return actionContext.stand;
+        case "double":
+          return actionContext.double;
+        case "split":
+          return actionContext.split;
+        case "surrender":
+          return actionContext.surrender;
+        default:
+          return false;
+      }
+    };
+    if (isLegal(recommendation.best)) {
+      return recommendation.best;
+    }
+    const fallbackAction = recommendation.fallback;
+    if (fallbackAction && isLegal(fallbackAction)) {
+      return fallbackAction;
+    }
+    return null;
+  }, [actionContext, recommendation]);
+
+  const liveTooltip = React.useMemo(() => {
+    if (!recommendation || !recommendedAction) {
+      return undefined;
+    }
+    return `Coach hint: ${formatAction(recommendedAction)}`;
+  }, [recommendation, recommendedAction]);
+
+  const [flashAction, setFlashAction] = React.useState<Action | null>(null);
+  const flashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    if (feedback?.tone === "better" && feedback.highlightAction) {
+      if (flashTimerRef.current) {
+        clearTimeout(flashTimerRef.current);
+      }
+      setFlashAction(feedback.highlightAction);
+      flashTimerRef.current = window.setTimeout(() => {
+        setFlashAction(null);
+        flashTimerRef.current = null;
+      }, 1000);
+    }
+  }, [feedback]);
+
+  React.useEffect(
+    () => () => {
+      if (flashTimerRef.current) {
+        clearTimeout(flashTimerRef.current);
+      }
+    },
+    []
+  );
+
+  const handleAction = React.useCallback(
+    (action: Action, callback: () => void) => {
+      if (coachMode === "feedback" && recommendation && recommendedAction) {
+        if (action === recommendedAction) {
+          onCoachFeedback({
+            tone: "correct",
+            message: buildCorrectMessage(recommendedAction),
+            highlightAction: recommendedAction
+          });
+        } else {
+          onCoachFeedback({
+            tone: "better",
+            message: buildMistakeMessage(recommendedAction),
+            highlightAction: recommendedAction
+          });
+        }
+      }
+      callback();
+    },
+    [coachMode, onCoachFeedback, recommendation, recommendedAction]
+  );
+
+  const triggerHit = React.useCallback(() => handleAction("hit", onHit), [handleAction, onHit]);
+  const triggerStand = React.useCallback(() => handleAction("stand", onStand), [handleAction, onStand]);
+  const triggerDouble = React.useCallback(() => handleAction("double", onDouble), [handleAction, onDouble]);
+  const triggerSplit = React.useCallback(() => handleAction("split", onSplit), [handleAction, onSplit]);
+  const triggerSurrender = React.useCallback(
+    () => handleAction("surrender", onSurrender),
+    [handleAction, onSurrender]
+  );
+
+  const shouldHighlight = React.useCallback(
+    (action: Action) => {
+      if (flashAction === action) {
+        return true;
+      }
+      if (coachMode === "live" && recommendedAction === action) {
+        return true;
+      }
+      return false;
+    },
+    [coachMode, flashAction, recommendedAction]
+  );
+
+  const highlightAttr = (action: Action) => (shouldHighlight(action) ? "best" : undefined);
+
+  const tooltipForAction = (action: Action) => {
+    if (flashAction === action && feedback) {
+      return feedback.message;
+    }
+    if (coachMode === "live" && recommendedAction === action) {
+      return liveTooltip;
+    }
+    return undefined;
+  };
 
   const showActions = game.phase !== "betting" || hasReadySeat(game);
   const fadeDuration = REDUCED ? 0 : ANIM.fade.duration;
@@ -99,28 +286,64 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
         </Button>
       </div>
 
-      {actionContext && (
-        <div className="ml-auto flex items-center gap-2">
-          <span className="hidden text-[10px] uppercase tracking-[0.4em] text-emerald-200 md:inline">
-            Active Bet {formatCurrency(actionContext.hand.bet)}
-          </span>
-          <Button size="sm" onClick={onHit} disabled={!actionContext.hit}>
-            Hit
-          </Button>
-          <Button size="sm" variant="outline" onClick={onStand} disabled={!actionContext.stand}>
-            Stand
-          </Button>
-          <Button size="sm" variant="outline" onClick={onDouble} disabled={!actionContext.double}>
-            Double
-          </Button>
-          <Button size="sm" variant="outline" onClick={onSplit} disabled={!actionContext.split}>
-            Split
-          </Button>
-          <Button size="sm" variant="outline" onClick={onSurrender} disabled={!actionContext.surrender}>
-            Surrender
-          </Button>
-        </div>
-      )}
+      <div className="ml-auto flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+        {actionContext && (
+          <div className="flex items-center gap-2">
+            <span className="hidden text-[10px] uppercase tracking-[0.4em] text-emerald-200 md:inline">
+              Active Bet {formatCurrency(actionContext.hand.bet)}
+            </span>
+            <Button
+              size="sm"
+              onClick={triggerHit}
+              disabled={!actionContext.hit}
+              data-coach={highlightAttr("hit")}
+              title={tooltipForAction("hit")}
+            >
+              Hit
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={triggerStand}
+              disabled={!actionContext.stand}
+              data-coach={highlightAttr("stand")}
+              title={tooltipForAction("stand")}
+            >
+              Stand
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={triggerDouble}
+              disabled={!actionContext.double}
+              data-coach={highlightAttr("double")}
+              title={tooltipForAction("double")}
+            >
+              Double
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={triggerSplit}
+              disabled={!actionContext.split}
+              data-coach={highlightAttr("split")}
+              title={tooltipForAction("split")}
+            >
+              Split
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={triggerSurrender}
+              disabled={!actionContext.surrender}
+              data-coach={highlightAttr("surrender")}
+              title={tooltipForAction("surrender")}
+            >
+              Surrender
+            </Button>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
