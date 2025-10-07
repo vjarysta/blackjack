@@ -42,6 +42,7 @@ const CARD_HEIGHT = 132;
 const CARD_GAP = 12;
 const DEALER_GAP = 16;
 const CARD_STEP = CARD_WIDTH + CARD_GAP;
+const HAND_VERTICAL_FALLBACK_STEP = CARD_HEIGHT + 60;
 
 const normalizeVector = (vector: { x: number; y: number }): { x: number; y: number } => {
   const magnitude = Math.hypot(vector.x, vector.y);
@@ -276,6 +277,62 @@ export const CardLayer: React.FC<CardLayerProps> = ({
   const clusterRefs = React.useRef(new Map<number, HTMLDivElement | null>());
   const clusterRefCallbacks = React.useRef(new Map<number, (node: HTMLDivElement | null) => void>());
   const [clusterSizes, setClusterSizes] = React.useState<Record<number, SeatClusterSize>>({});
+  const handRefs = React.useRef(new Map<string, HTMLDivElement | null>());
+  const handRefCallbacks = React.useRef(new Map<string, (node: HTMLDivElement | null) => void>());
+  const handSeatLookup = React.useRef(new Map<string, number>());
+  const [handOffsets, setHandOffsets] = React.useState<Record<string, number>>({});
+  const handMeasureFrame = React.useRef<number | null>(null);
+
+  const queueHandMeasurement = React.useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (handMeasureFrame.current !== null) {
+      window.cancelAnimationFrame(handMeasureFrame.current);
+    }
+    handMeasureFrame.current = window.requestAnimationFrame(() => {
+      handMeasureFrame.current = null;
+      const updates = new Map<string, number>();
+      handRefs.current.forEach((node, handId) => {
+        if (!node) {
+          return;
+        }
+        const seatIndex = handSeatLookup.current.get(handId);
+        if (seatIndex === undefined) {
+          return;
+        }
+        const clusterNode = clusterRefs.current.get(seatIndex);
+        if (!clusterNode) {
+          return;
+        }
+        const clusterRect = clusterNode.getBoundingClientRect();
+        const handRect = node.getBoundingClientRect();
+        updates.set(handId, handRect.top - clusterRect.top);
+      });
+      if (updates.size === 0) {
+        return;
+      }
+      setHandOffsets((previous) => {
+        let changed = false;
+        const next = { ...previous };
+        updates.forEach((offset, handId) => {
+          if (!(handId in previous) || Math.abs(previous[handId] - offset) > 0.5) {
+            next[handId] = offset;
+            changed = true;
+          }
+        });
+        return changed ? next : previous;
+      });
+    });
+  }, []);
+
+  React.useEffect(() => {
+    return () => {
+      if (handMeasureFrame.current !== null && typeof window !== "undefined") {
+        window.cancelAnimationFrame(handMeasureFrame.current);
+      }
+    };
+  }, []);
 
   const getClusterRef = React.useCallback(
     (seatIndex: number) => {
@@ -296,6 +353,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
               }
               return { ...previous, [seatIndex]: nextSize };
             });
+            queueHandMeasurement();
           } else {
             clusterRefs.current.delete(seatIndex);
             setClusterSizes((previous) => {
@@ -306,12 +364,13 @@ export const CardLayer: React.FC<CardLayerProps> = ({
               delete next[seatIndex];
               return next;
             });
+            queueHandMeasurement();
           }
         });
       }
       return clusterRefCallbacks.current.get(seatIndex)!;
     },
-    []
+    [queueHandMeasurement]
   );
 
   const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
@@ -350,6 +409,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           }
           return { ...previous, [seatIndex]: { width, height } };
         });
+        queueHandMeasurement();
       });
       observer.observe(node);
       observers.push(observer);
@@ -357,7 +417,67 @@ export const CardLayer: React.FC<CardLayerProps> = ({
     return () => {
       observers.forEach((observer) => observer.disconnect());
     };
-  }, [layoutSignature]);
+  }, [layoutSignature, queueHandMeasurement]);
+
+  const getHandRef = React.useCallback(
+    (handId: string, seatIndex: number) => {
+      if (!handRefCallbacks.current.has(handId)) {
+        handRefCallbacks.current.set(handId, (node: HTMLDivElement | null) => {
+          if (node) {
+            handRefs.current.set(handId, node);
+          } else {
+            handRefs.current.delete(handId);
+            handSeatLookup.current.delete(handId);
+            setHandOffsets((previous) => {
+              if (!(handId in previous)) {
+                return previous;
+              }
+              const next = { ...previous };
+              delete next[handId];
+              return next;
+            });
+            handRefCallbacks.current.delete(handId);
+          }
+          queueHandMeasurement();
+        });
+      }
+      const previousSeat = handSeatLookup.current.get(handId);
+      handSeatLookup.current.set(handId, seatIndex);
+      if (previousSeat !== seatIndex) {
+        queueHandMeasurement();
+      }
+      return handRefCallbacks.current.get(handId)!;
+    },
+    [queueHandMeasurement]
+  );
+
+  const handsSignature = React.useMemo(
+    () =>
+      seatsForMode
+        .map((seat) =>
+          seat.hands
+            .map((hand) =>
+              [
+                hand.id,
+                hand.cards.length,
+                hand.bet,
+                hand.insuranceBet ?? "none",
+                hand.isSplitHand ? 1 : 0,
+                hand.isDoubled ? 1 : 0,
+                hand.isSurrendered ? 1 : 0,
+                hand.isBlackjack ? 1 : 0,
+                hand.hasActed ? 1 : 0
+              ].join(":")
+            )
+            .join("|")
+        )
+        .join("||"),
+    [seatsForMode]
+  );
+
+  React.useLayoutEffect(() => {
+    queueHandMeasurement();
+  }, [queueHandMeasurement, handsSignature, seatLayouts, dimensions.height, dimensions.width]);
 
   const revealHole =
     game.phase === "dealerPlay" || game.phase === "settlement" || game.dealer.hand.isBlackjack;
@@ -442,7 +562,6 @@ export const CardLayer: React.FC<CardLayerProps> = ({
         const isActiveSeat = game.activeSeatIndex === seat.index;
         const hands = seat.hands.length > 0 ? seat.hands : [];
         const clusterTop = position.y - layout.size.height / 2;
-        const cardTop = clusterTop + 12;
         const readyBadge =
           hands.length === 0 && seat.baseBet > 0 ? (
             <span
@@ -461,6 +580,9 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           const totalStep = CARD_STEP;
           const startCenterX = baseCenterX - ((cardCount - 1) * totalStep) / 2;
           const cardRowWidth = CARD_WIDTH + (cardCount - 1) * totalStep;
+          const measuredOffset = handOffsets[hand.id];
+          const fallbackOffset = 12 + handIndex * HAND_VERTICAL_FALLBACK_STEP;
+          const cardTop = clusterTop + (measuredOffset ?? fallbackOffset);
 
           hand.cards.forEach((card, cardIndex) => {
             const centerX = startCenterX + cardIndex * totalStep;
@@ -483,7 +605,11 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           });
 
           return (
-            <div key={hand.id} className="player-hand pointer-events-none">
+            <div
+              key={hand.id}
+              ref={getHandRef(hand.id, seat.index)}
+              className="player-hand pointer-events-none"
+            >
               <div
                 aria-hidden
                 className="player-hand__cards"
