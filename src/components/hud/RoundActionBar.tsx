@@ -74,6 +74,12 @@ const formatAction = (action: Action): string => {
   }
 };
 
+const buildCorrectMessage = (action: Action): string =>
+  `Nice! ${formatAction(action)} was the right move.`;
+
+const buildMistakeMessage = (action: Action): string =>
+  `Mistake: should have chosen ${formatAction(action)}.`;
+
 const FEEDBACK_STYLES: Record<CoachFeedback["tone"], string> = {
   correct: "border-emerald-400/60 bg-emerald-900/70 text-emerald-100",
   better: "border-[#c8a24a]/60 bg-[#36240c]/80 text-[#f4dba5]",
@@ -176,7 +182,7 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
     if (!recommendation || !recommendedAction) {
       return undefined;
     }
-    return `Best move (Basic Strategy): ${formatAction(recommendedAction)}. ${recommendation.reasoning}`;
+    return `Coach hint: ${formatAction(recommendedAction)}`;
   }, [recommendation, recommendedAction]);
 
   const [flashAction, setFlashAction] = React.useState<Action | null>(null);
@@ -210,13 +216,13 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
         if (action === recommendedAction) {
           onCoachFeedback({
             tone: "correct",
-            message: `Good move — ${recommendation.reasoning}`,
+            message: buildCorrectMessage(recommendedAction),
             highlightAction: recommendedAction
           });
         } else {
           onCoachFeedback({
             tone: "better",
-            message: `Better: ${formatAction(recommendedAction)} — ${recommendation.reasoning}`,
+            message: buildMistakeMessage(recommendedAction),
             highlightAction: recommendedAction
           });
         }

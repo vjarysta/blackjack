@@ -114,8 +114,8 @@ const renderInsurancePrompt = (
     }
     const text =
       tone === "correct"
-        ? "Good move — Basic strategy: Skip insurance."
-        : "Better: Skip insurance — Basic strategy: Skip insurance.";
+        ? "Nice! Skipping insurance was the right call."
+        : "Mistake: should have skipped insurance.";
     onCoachFeedback({ tone, message: text, highlightAction: "insurance-skip" });
   };
 
@@ -152,7 +152,7 @@ const renderInsurancePrompt = (
           className="h-7 px-3 text-[11px] font-semibold uppercase tracking-[0.3em]"
           data-coach={liveHighlight ? "best" : undefined}
           onClick={handleSkipInsurance}
-          title="Basic strategy: Skip insurance"
+          title="Coach hint: Skip insurance"
         >
           Skip
         </Button>
