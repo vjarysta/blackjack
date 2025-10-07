@@ -7,6 +7,8 @@ import { NoirJackTable } from "../components/noirjack/NoirJackTable";
 import { useDisplayMode } from "../ui/displayMode";
 import { UIModeToggle } from "../components/UIModeToggle";
 import type { DisplayMode } from "../ui/displayMode";
+import { audioService } from "../services/AudioService";
+import { classicSoundProfile, noirSoundProfile } from "../services/soundProfiles";
 
 export const App: React.FC = () => {
   const {
@@ -33,6 +35,27 @@ export const App: React.FC = () => {
     nextRound
   } = useGameStore();
   const [displayMode, setDisplayMode] = useDisplayMode();
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const options: AddEventListenerOptions = { capture: true };
+    const handlePointerDown = (): void => {
+      audioService.init();
+      window.removeEventListener("pointerdown", handlePointerDown, options);
+    };
+    window.addEventListener("pointerdown", handlePointerDown, options);
+    return () => window.removeEventListener("pointerdown", handlePointerDown, options);
+  }, []);
+
+  React.useEffect(() => {
+    if (displayMode === "noirjack") {
+      audioService.useProfile(noirSoundProfile);
+    } else {
+      audioService.useProfile(classicSoundProfile);
+    }
+  }, [displayMode]);
 
   React.useEffect(() => {
     if (!isSingleSeatMode) {

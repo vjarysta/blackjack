@@ -13,10 +13,10 @@ const mapLegacyMode = (value: string | null): DisplayMode | null => {
   if (!value) {
     return null;
   }
-  if (value === "classic") {
-    return "classic";
+  if (isValidMode(value)) {
+    return value;
   }
-  if (value === "mobile" || value === "noirjack") {
+  if (value === "mobile") {
     return "noirjack";
   }
   return null;
