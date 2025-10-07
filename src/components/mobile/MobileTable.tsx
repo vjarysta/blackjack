@@ -423,6 +423,11 @@ export const MobileTable: React.FC<MobileTableProps> = ({
                 <span>Bankroll {formatCurrency(game.bankroll)}</span>
                 <span>Bet {formatCurrency(seat?.baseBet ?? 0)}</span>
               </div>
+              {game.phase === "settlement" && game.lastWin && game.lastWin > 0 && (
+                <div className="flex items-center justify-center text-[11px] uppercase tracking-[0.32em] text-emerald-100">
+                  <span>Last win {formatCurrency(game.lastWin)}</span>
+                </div>
+              )}
               {coachMessage && (
                 <div
                   className={cn(
