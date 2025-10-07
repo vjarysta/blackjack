@@ -33,22 +33,23 @@ export const PlayerHandView: React.FC<PlayerHandViewProps> = ({ seat, activeHand
   const [focusedHandId, setFocusedHandId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    const seatHands = seat?.hands ?? [];
     if (!focusedHandId) {
       if (activeHandId) {
         setFocusedHandId(activeHandId);
         return;
       }
-      if (hands.length > 0) {
-        setFocusedHandId(hands[0].id);
+      if (seatHands.length > 0) {
+        setFocusedHandId(seatHands[0].id);
       }
     }
-  }, [activeHandId, hands, focusedHandId]);
+  }, [activeHandId, focusedHandId, seat]);
 
   React.useEffect(() => {
     if (activeHandId && focusedHandId !== activeHandId) {
       setFocusedHandId(activeHandId);
     }
-  }, [activeHandId, focusedHandId]);
+  }, [activeHandId, focusedHandId, seat]);
 
   const focusedHand = hands.find((hand) => hand.id === focusedHandId) ?? hands[0];
 

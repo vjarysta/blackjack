@@ -1,12 +1,19 @@
 import React from "react";
 
-export type DisplayMode = "classic" | "mobile";
+export type DisplayMode = "classic" | "noirjack";
 
 const DISPLAY_QUERY_KEY = "ui";
 const DISPLAY_STORAGE_KEY = "ui.display";
 const DEFAULT_MODE: DisplayMode = "classic";
 
-const isValidMode = (value: string | null): value is DisplayMode => value === "classic" || value === "mobile";
+const isValidMode = (value: string | null): value is DisplayMode => value === "classic" || value === "noirjack";
+
+const mapLegacyMode = (value: string | null): DisplayMode | null => {
+  if (value === "mobile") {
+    return "noirjack";
+  }
+  return null;
+};
 
 const readStoredMode = (): DisplayMode | null => {
   if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
@@ -16,6 +23,11 @@ const readStoredMode = (): DisplayMode | null => {
     const stored = window.localStorage.getItem(DISPLAY_STORAGE_KEY);
     if (isValidMode(stored)) {
       return stored;
+    }
+    const legacy = mapLegacyMode(stored);
+    if (legacy) {
+      persistMode(legacy);
+      return legacy;
     }
   } catch {
     // ignore storage errors
@@ -61,6 +73,11 @@ const resolveInitialMode = (): DisplayMode => {
     if (isValidMode(queryMode)) {
       persistMode(queryMode);
       return queryMode;
+    }
+    const legacy = mapLegacyMode(queryMode);
+    if (legacy) {
+      persistMode(legacy);
+      return legacy;
     }
   } catch {
     // ignore query parse errors

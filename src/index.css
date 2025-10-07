@@ -1,9 +1,11 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@400;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  font-family: theme('fontFamily.sans');
+  font-family: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --card-w: clamp(72px, 8.5vw, 110px);
   --card-h: calc(var(--card-w) * 1.43);
   --card-stack-overlap: calc(var(--card-h) * 0.28);
@@ -18,6 +20,18 @@
   --result-fg: #0b1f19;
   --result-bg: rgba(11, 31, 25, 0.75);
   --result-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  /* NoirJack tokens */
+  --nj-felt: #064e3b;
+  --nj-glass: rgba(10, 15, 20, 0.7);
+  --nj-gold: #e9c46a;
+  --nj-mint: #2dd4bf;
+  --nj-text: #ffffff;
+  --nj-text-muted: #d1d5db;
+  --nj-win: #22c55e;
+  --nj-lose: #dc2626;
+  --nj-card-face: #f9fafb;
+  --nj-outline: rgba(255, 255, 255, 0.12);
+  --nj-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .dealer-area {
@@ -276,5 +290,447 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   [data-coach="best"]::after {
     animation: none;
+  }
+}
+
+.font-cinzel {
+  font-family: "Cinzel", "Times New Roman", serif;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.noirjack-theme {
+  min-height: 100vh;
+  color: var(--nj-text);
+  background: radial-gradient(150% 120% at 50% 0%, rgba(3, 24, 18, 0.85), rgba(6, 78, 59, 0.98) 38%, rgba(3, 30, 23, 0.95) 100%);
+  padding: clamp(16px, 2vw, 32px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2vw, 28px);
+  font-size: clamp(18px, 1.1vw + 0.8rem, 22px);
+  letter-spacing: 0.02em;
+  position: relative;
+}
+
+.noirjack-theme::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(50% 50% at 50% 15%, rgba(233, 196, 106, 0.12), transparent),
+    radial-gradient(35% 35% at 20% 80%, rgba(45, 212, 191, 0.08), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.noirjack-theme * {
+  font-family: inherit;
+}
+
+.noirjack-theme main,
+.noirjack-theme section,
+.noirjack-theme header,
+.noirjack-theme footer {
+  position: relative;
+  z-index: 1;
+}
+
+.nj-glass {
+  background: var(--nj-glass);
+  backdrop-filter: blur(10px) saturate(1.1);
+  border: 1px solid var(--nj-outline);
+  border-radius: 20px;
+  box-shadow: var(--nj-shadow);
+}
+
+.nj-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 12px;
+  border: 1px solid var(--nj-outline);
+  color: var(--nj-text);
+  background: rgba(255, 255, 255, 0.02);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+  min-height: 48px;
+}
+
+.nj-btn-primary {
+  background: linear-gradient(180deg, #0f7a63, #0b6150);
+  border: 1px solid rgba(233, 196, 106, 0.35);
+  box-shadow: 0 10px 26px rgba(5, 16, 13, 0.38);
+}
+
+.nj-btn:hover:not([disabled]) {
+  transform: translateY(-1px) scale(1.01);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+}
+
+.nj-btn-primary:hover:not([disabled]) {
+  box-shadow: 0 18px 36px rgba(4, 30, 23, 0.55);
+}
+
+.nj-btn:active:not([disabled]) {
+  transform: translateY(1px) scale(0.99);
+}
+
+.nj-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.nj-btn:focus-visible {
+  outline: 2px solid rgba(233, 196, 106, 0.85);
+  outline-offset: 3px;
+}
+
+.noirjack-theme [data-coach="best"] {
+  box-shadow: 0 0 0 2px rgba(233, 196, 106, 0.55), 0 0 22px rgba(233, 196, 106, 0.35);
+  position: relative;
+}
+
+.noirjack-theme [data-coach="best"]::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(233, 196, 106, 0.12), transparent 70%);
+  animation: njPulse 1.8s ease-in-out infinite;
+}
+
+.nj-chip {
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  border: 2px solid rgba(233, 196, 106, 0.5);
+  display: inline-grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #08110e;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0) 50%),
+    radial-gradient(circle at 70% 70%, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0) 55%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2), inset 0 12px 18px rgba(255, 255, 255, 0.15), 0 12px 24px rgba(0, 0, 0, 0.4);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.nj-chip::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 196, 106, 0.35);
+  box-shadow: inset 0 6px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.nj-chip[data-selected="true"] {
+  border-color: rgba(233, 196, 106, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(233, 196, 106, 0.45), 0 14px 26px rgba(233, 196, 106, 0.18);
+}
+
+.nj-chip:focus-visible {
+  outline: 2px solid rgba(233, 196, 106, 0.85);
+  outline-offset: 3px;
+}
+
+.nj-chip:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.nj-chip.nj-chip-bounce {
+  animation: njChipBounce 220ms ease-out;
+}
+
+.nj-chip.nj-chip-fade {
+  animation: njChipFade 280ms ease-in forwards;
+}
+
+.nj-card-shell {
+  position: relative;
+  display: block;
+  transform-origin: center bottom;
+  animation: njCardDeal 320ms ease-out backwards;
+  animation-delay: calc(var(--deal-index, 0) * 60ms);
+}
+
+.nj-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 300ms ease;
+}
+
+.nj-card.is-face-down {
+  transform: rotateY(180deg);
+}
+
+.nj-card-side {
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  backface-visibility: hidden;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.nj-card-face {
+  background: var(--nj-card-face);
+  color: #0b1520;
+}
+
+.nj-card-face::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(8, 21, 16, 0.08);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.05));
+  pointer-events: none;
+}
+
+.nj-card-back {
+  background: linear-gradient(135deg, rgba(8, 12, 16, 0.92), rgba(14, 20, 26, 0.88)),
+    repeating-linear-gradient(45deg, rgba(233, 196, 106, 0.22), rgba(233, 196, 106, 0.22) 6px, rgba(10, 15, 20, 0.4) 6px, rgba(10, 15, 20, 0.4) 12px);
+  border: 1px solid rgba(233, 196, 106, 0.55);
+  transform: rotateY(180deg);
+  box-shadow: inset 0 0 0 1px rgba(233, 196, 106, 0.45);
+}
+
+.nj-card-back::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(233, 196, 106, 0.45);
+  background: radial-gradient(circle at center, rgba(233, 196, 106, 0.08), transparent 65%);
+}
+
+.nj-card-rank {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 1.4rem;
+}
+
+.nj-card-rank-bottom {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 1.4rem;
+  transform: rotate(180deg);
+}
+
+.nj-card-suit {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.4rem;
+  pointer-events: none;
+}
+
+.nj-card-suit svg {
+  filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.25));
+}
+
+.nj-result-banner {
+  position: fixed;
+  top: clamp(16px, 5vh, 60px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(233, 196, 106, 0.4);
+  background: rgba(7, 16, 13, 0.85);
+  color: var(--nj-text);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  box-shadow: var(--nj-shadow);
+  opacity: 0;
+  animation: njResult 1.6s ease forwards;
+  z-index: 40;
+}
+
+.nj-result-banner[data-tone="win"] {
+  border-color: rgba(34, 197, 94, 0.55);
+  color: var(--nj-win);
+}
+
+.nj-result-banner[data-tone="lose"] {
+  border-color: rgba(220, 38, 38, 0.55);
+  color: var(--nj-lose);
+}
+
+.nj-result-banner[data-tone="push"] {
+  border-color: rgba(233, 196, 106, 0.45);
+  color: var(--nj-gold);
+}
+
+.nj-sticky-bottom {
+  position: sticky;
+  bottom: 0;
+  padding-bottom: max(env(safe-area-inset-bottom), 16px);
+}
+
+.nj-safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+}
+
+.nj-bankroll-win {
+  animation: njBankrollGlow 900ms ease-out;
+}
+
+.nj-bankroll-lose {
+  animation: njBankrollFlash 600ms ease-out;
+}
+
+.nj-hint-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: rgba(233, 196, 106, 0.18);
+  border: 1px solid rgba(233, 196, 106, 0.3);
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--nj-gold);
+}
+
+.sr-announcer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes njCardDeal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -12px, 0) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes njChipBounce {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  35% {
+    transform: translateY(-6px) scale(1.05);
+  }
+  70% {
+    transform: translateY(2px) scale(0.98);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes njChipFade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes njResult {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+
+@keyframes njPulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes njBankrollGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(34, 197, 94, 0);
+  }
+}
+
+@keyframes njBankrollFlash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(220, 38, 38, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .noirjack-theme * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .nj-card,
+  .nj-card-shell,
+  .nj-result-banner,
+  .nj-chip {
+    animation: none !important;
+  }
+  .nj-card {
+    transition: none !important;
   }
 }

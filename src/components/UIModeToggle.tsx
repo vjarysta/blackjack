@@ -16,15 +16,15 @@ export const UIModeToggle: React.FC<UIModeToggleProps> = ({ mode, onChange }) =>
   );
 
   return (
-    <div className="inline-flex rounded-full border border-emerald-700 bg-emerald-900/60 p-1 text-xs text-emerald-200 shadow"> 
+    <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-black/40 p-1 text-[11px] font-semibold uppercase tracking-[0.3em] text-white/70 shadow-lg backdrop-blur">
       <button
         type="button"
         onClick={handleSelect("classic")}
         className={cn(
-          "rounded-full px-3 py-1 font-semibold uppercase tracking-[0.2em] transition",
+          "rounded-full px-3 py-1 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E9C46A]",
           mode === "classic"
-            ? "bg-emerald-600 text-emerald-50 shadow-inner"
-            : "text-emerald-200 hover:text-emerald-50"
+            ? "bg-white/20 text-white shadow-inner"
+            : "text-white/70 hover:text-white"
         )}
         aria-pressed={mode === "classic"}
         aria-label="Switch to classic table UI"
@@ -33,17 +33,17 @@ export const UIModeToggle: React.FC<UIModeToggleProps> = ({ mode, onChange }) =>
       </button>
       <button
         type="button"
-        onClick={handleSelect("mobile")}
+        onClick={handleSelect("noirjack")}
         className={cn(
-          "rounded-full px-3 py-1 font-semibold uppercase tracking-[0.2em] transition",
-          mode === "mobile"
-            ? "bg-emerald-600 text-emerald-50 shadow-inner"
-            : "text-emerald-200 hover:text-emerald-50"
+          "rounded-full px-3 py-1 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E9C46A]",
+          mode === "noirjack"
+            ? "bg-white/20 text-white shadow-inner"
+            : "text-white/70 hover:text-white"
         )}
-        aria-pressed={mode === "mobile"}
-        aria-label="Switch to mobile-first UI"
+        aria-pressed={mode === "noirjack"}
+        aria-label="Switch to NoirJack UI"
       >
-        Mobile
+        NoirJack
       </button>
     </div>
   );
