@@ -1,5 +1,5 @@
 import React from "react";
-import { Volume2, VolumeX, Waveform } from "lucide-react";
+import { Volume2, VolumeX, AudioWaveform } from "lucide-react";
 import { audioService } from "../../services/AudioService";
 
 export const NoirSoundControls: React.FC = () => {
@@ -55,7 +55,7 @@ export const NoirSoundControls: React.FC = () => {
         title="Reduce audio"
         aria-label="Reduce audio"
       >
-        <Waveform size={16} aria-hidden="true" />
+        <AudioWaveform size={16} aria-hidden="true" />
       </button>
     </div>
   );

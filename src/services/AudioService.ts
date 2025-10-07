@@ -70,6 +70,8 @@ const REDUCED_MULTIPLIER = 0.35;
 const MIN_INTERVAL_MS = 120;
 
 class NoOpAudioService implements AudioService {
+  private readonly snapshot: AudioSnapshot = { muted: true, volume: 0, reduced: false, ready: false };
+
   init(): void {}
   play(): void {}
   playChip(): void {}
@@ -98,7 +100,7 @@ class NoOpAudioService implements AudioService {
     return () => {};
   }
   getSnapshot(): AudioSnapshot {
-    return { muted: true, volume: 0, reduced: false, ready: false };
+    return this.snapshot;
   }
 }
 
@@ -115,6 +117,7 @@ class BrowserAudioService implements AudioService {
   private volume: number;
   private reduced: boolean;
   private hasCustomVolume: boolean;
+  private snapshot: AudioSnapshot;
 
   constructor() {
     const persisted = this.readSettings();
@@ -122,6 +125,7 @@ class BrowserAudioService implements AudioService {
     this.volume = clamp(persisted?.volume ?? 0.65, 0, 1);
     this.reduced = persisted?.reduced ?? false;
     this.hasCustomVolume = typeof persisted?.volume === "number";
+    this.snapshot = this.buildSnapshot();
   }
 
   private readSettings(): PersistedSettings | null {
@@ -184,7 +188,26 @@ class BrowserAudioService implements AudioService {
     this.masterGain.gain.value = this.muted ? 0 : this.volume * multiplier;
   }
 
+  private buildSnapshot(): AudioSnapshot {
+    return {
+      muted: this.muted,
+      volume: this.volume,
+      reduced: this.reduced,
+      ready: this.ready
+    };
+  }
+
   private notify(): void {
+    const next = this.buildSnapshot();
+    if (
+      this.snapshot.muted === next.muted &&
+      this.snapshot.volume === next.volume &&
+      this.snapshot.reduced === next.reduced &&
+      this.snapshot.ready === next.ready
+    ) {
+      return;
+    }
+    this.snapshot = next;
     this.listeners.forEach((listener) => listener());
   }
 
@@ -398,12 +421,7 @@ class BrowserAudioService implements AudioService {
   }
 
   getSnapshot(): AudioSnapshot {
-    return {
-      muted: this.muted,
-      volume: this.volume,
-      reduced: this.reduced,
-      ready: this.ready
-    };
+    return this.snapshot;
   }
 }
 
