@@ -438,7 +438,7 @@ export const CardLayer: React.FC<CardLayerProps> = ({
       </div>
 
       {seatLayouts.map((layout) => {
-        const { seat, orientation, position } = layout;
+        const { seat, position, direction } = layout;
         const isActiveSeat = game.activeSeatIndex === seat.index;
         const hands = seat.hands.length > 0 ? seat.hands : [];
         const clusterTop = position.y - layout.size.height / 2;
@@ -522,9 +522,17 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           )
           .filter(Boolean) as React.ReactNode[];
 
+        const shouldAnchorRight = direction.x >= 0;
+
         const promptStack =
           promptElements.length > 0 ? (
-            <div className="pointer-events-auto flex flex-col items-center gap-2">{promptElements}</div>
+            <div
+              className={`pointer-events-auto flex flex-col gap-2 ${
+                shouldAnchorRight ? "items-start text-left" : "items-end text-right"
+              }`}
+            >
+              {promptElements}
+            </div>
           ) : null;
 
         const clusterRef = getClusterRef(seat.index);
@@ -540,19 +548,26 @@ export const CardLayer: React.FC<CardLayerProps> = ({
           >
             <div
               ref={clusterRef}
-              className="pointer-events-none flex max-w-[280px] flex-col items-center gap-3 rounded-2xl px-4 py-3"
+              className="pointer-events-none relative flex max-w-[280px] flex-col items-center gap-3 rounded-2xl px-4 py-3"
               style={{
                 boxShadow,
                 backgroundColor: "rgba(4, 24, 18, 0.65)",
                 border: "1px solid rgba(21, 74, 58, 0.35)"
               }}
             >
-              {orientation === "up" && promptStack}
+              {promptStack && (
+                <div
+                  className={`pointer-events-none absolute top-1/2 -translate-y-1/2 ${
+                    shouldAnchorRight ? "left-full ml-8" : "right-full mr-8"
+                  }`}
+                >
+                  {promptStack}
+                </div>
+              )}
               <div className="pointer-events-none flex flex-col items-center gap-3">
                 {readyBadge}
                 {handNodes}
               </div>
-              {orientation === "down" && promptStack}
             </div>
           </div>
         );
