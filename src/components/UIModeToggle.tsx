@@ -16,7 +16,7 @@ export const UIModeToggle: React.FC<UIModeToggleProps> = ({ mode, onChange }) =>
   );
 
   return (
-    <div className="inline-flex rounded-full border border-emerald-700 bg-emerald-900/60 p-1 text-xs text-emerald-200 shadow"> 
+    <div className="inline-flex rounded-full border border-emerald-700 bg-emerald-900/60 p-1 text-xs text-emerald-200 shadow">
       <button
         type="button"
         onClick={handleSelect("classic")}
@@ -33,17 +33,17 @@ export const UIModeToggle: React.FC<UIModeToggleProps> = ({ mode, onChange }) =>
       </button>
       <button
         type="button"
-        onClick={handleSelect("mobile")}
+        onClick={handleSelect("noirjack")}
         className={cn(
           "rounded-full px-3 py-1 font-semibold uppercase tracking-[0.2em] transition",
-          mode === "mobile"
+          mode === "noirjack"
             ? "bg-emerald-600 text-emerald-50 shadow-inner"
             : "text-emerald-200 hover:text-emerald-50"
         )}
-        aria-pressed={mode === "mobile"}
-        aria-label="Switch to mobile-first UI"
+        aria-pressed={mode === "noirjack"}
+        aria-label="Switch to NoirJack UI"
       >
-        Mobile
+        NoirJack
       </button>
     </div>
   );
