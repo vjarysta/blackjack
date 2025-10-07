@@ -2,5 +2,8 @@ node_modules
 .DS_Store
 dist
 vite.config.ts.timestamp-*
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
 coverage
 npm-debug.log*
