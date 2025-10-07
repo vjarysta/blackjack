@@ -278,3 +278,24 @@ button:disabled {
     animation: none;
   }
 }
+
+@keyframes mobileSheetUp {
+  from {
+    opacity: 0;
+    transform: translateY(12%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: mobileSheetUp 0.28s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-up {
+    animation: none;
+  }
+}
