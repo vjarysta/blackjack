@@ -125,7 +125,7 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
       },
       cards: actionContext.hand.cards.map((card) => ({ rank: card.rank })),
       isInitialTwoCards:
-        actionContext.hand.cards.length === 2 && !Boolean(actionContext.hand.hasActed),
+        actionContext.hand.cards.length === 2 && !actionContext.hand.hasActed,
       afterSplit: Boolean(actionContext.hand.isSplitHand),
       legal: {
         hit: actionContext.hit,
@@ -179,7 +179,7 @@ export const RoundActionBar: React.FC<RoundActionBarProps> = ({
   }, [recommendation, recommendedAction]);
 
   const [flashAction, setFlashAction] = React.useState<Action | null>(null);
-  const flashTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashTimerRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     if (feedback?.tone === "better" && feedback.highlightAction) {

@@ -222,8 +222,8 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
   const seatsForMode = React.useMemo(() => filterSeatsForMode(game.seats), [game.seats]);
 
   const [bannerState, setBannerState] = React.useState<BannerState | null>(null);
-  const exitTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const removeTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimerRef = React.useRef<number | null>(null);
+  const removeTimerRef = React.useRef<number | null>(null);
   const previousRoundRef = React.useRef(game.roundCount);
 
   const [coachFeedback, setCoachFeedback] = React.useState<CoachFeedback | null>(null);

@@ -157,8 +157,6 @@ const actionLabel = (action: Action): string => {
   }
 };
 
-const capitalize = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1);
-
 const toTableRef = (rules: RuleConfig): string => {
   const base = `6D-${rules.dealerStandsOnSoft17 ? "S17" : "H17"}`;
   const surrender =
