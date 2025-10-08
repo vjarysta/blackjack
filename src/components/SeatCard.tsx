@@ -1,11 +1,11 @@
 import React from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Input } from "./ui/input";
 import { formatCurrency } from "../utils/currency";
 import { getHandTotals, isBust } from "../engine/totals";
 import type { GameState, Hand, Seat } from "../engine/types";
 import { canDouble, canHit, canSplit, canSurrender } from "../engine/rules";
+import { BetControl } from "./bet/BetControl";
 
 interface SeatCardProps {
   seat: Seat;
@@ -92,11 +92,6 @@ export const SeatCard: React.FC<SeatCardProps> = ({
   onInsurance,
   onDeclineInsurance
 }) => {
-  const [betInput, setBetInput] = React.useState(seat.baseBet.toString());
-  React.useEffect(() => {
-    setBetInput(seat.baseBet.toString());
-  }, [seat.baseBet]);
-
   const isBettingPhase = game.phase === "betting";
   const isInsurancePhase = game.phase === "insurance";
   const isActiveSeat = game.activeSeatIndex === seat.index;
@@ -195,27 +190,14 @@ export const SeatCard: React.FC<SeatCardProps> = ({
           </Button>
         )}
         {seat.occupied && isBettingPhase && (
-          <div className="space-y-2">
-            <label className="text-sm text-emerald-200" htmlFor={`bet-${seat.index}`}>
-              Bet amount
-            </label>
-            <Input
-              id={`bet-${seat.index}`}
-              type="number"
-              min={game.rules.minBet}
-              step={1}
-              value={betInput}
-              onChange={(event) => {
-                const value = event.target.value;
-                setBetInput(value);
-                const numeric = Number(value);
-                if (!Number.isNaN(numeric)) {
-                  onBetChange(seat.index, Math.min(numeric, Math.floor(game.bankroll)));
-                }
-              }}
-            />
-            <p className="text-xs text-emerald-200">Min bet: {formatCurrency(game.rules.minBet)}</p>
-          </div>
+          <BetControl
+            amount={seat.baseBet}
+            min={game.rules.minBet}
+            max={game.rules.maxBet}
+            bankroll={game.bankroll}
+            disabled={game.phase !== "betting"}
+            onChange={(value) => onBetChange(seat.index, value)}
+          />
         )}
         {seat.occupied && !isBettingPhase && seat.hands.map((hand) => renderHand(hand))}
         {seat.occupied && isBettingPhase && seat.baseBet >= game.rules.minBet && (

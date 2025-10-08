@@ -1,4 +1,4 @@
-const formatter = new Intl.NumberFormat("en-IE", {
+const formatter = new Intl.NumberFormat("fr-FR", {
   style: "currency",
   currency: "EUR",
   minimumFractionDigits: 2
