@@ -25,6 +25,9 @@ export const canHit = (hand: Hand): boolean => {
   if (hand.isSplitAce && hand.cards.length >= 2) {
     return false;
   }
+  if (bestTotal(hand) === 21) {
+    return false;
+  }
   return !isBust(hand);
 };
 
