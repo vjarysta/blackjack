@@ -1234,6 +1234,7 @@ body.skin-noirjack .nj-error {
 body.skin-noirjack .nj-insurance {
   position: fixed;
   inset: 0;
+  z-index: 50;
   background: rgba(3, 10, 12, 0.68);
   display: flex;
   align-items: flex-end;
