@@ -19,6 +19,7 @@ export const App: React.FC = () => {
     setCoachMode,
     sit,
     leave,
+    setBet,
     addChip,
     removeChipValue,
     removeTopChip,
@@ -75,6 +76,7 @@ export const App: React.FC = () => {
   const actions = {
     sit,
     leave,
+    setBet,
     addChip,
     removeChipValue,
     removeTopChip,

@@ -3,7 +3,6 @@ import { Info, Settings2, Sparkles } from "lucide-react";
 import type { GameState, Hand } from "../../engine/types";
 import { PRIMARY_SEAT_INDEX, filterSeatsForMode } from "../../ui/config";
 import type { CoachMode } from "../../store/useGameStore";
-import type { ChipDenomination } from "../../theme/palette";
 import { formatCurrency } from "../../utils/currency";
 import { canDouble, canHit, canSplit, canSurrender } from "../../engine/rules";
 import {
@@ -12,7 +11,6 @@ import {
   type PlayerContext,
 } from "../../utils/basicStrategy";
 import { NoirCardFan } from "./NoirCardFan";
-import { Chip } from "../hud/Chip";
 import { cn } from "../../utils/cn";
 import { bestTotal, isBust } from "../../engine/totals";
 import { ResultToast, type ResultKind } from "./ResultToast";
@@ -24,6 +22,7 @@ import {
   type FireworksOverlayHandle,
 } from "../effects/FireworksOverlay";
 import logoImage from "../../assets/images/logo.png";
+import { BetControl } from "../betting/BetControl";
 
 interface NoirJackTableProps {
   game: GameState;
@@ -31,6 +30,7 @@ interface NoirJackTableProps {
   actions: {
     sit: (seatIndex: number) => void;
     leave: (seatIndex: number) => void;
+    setBet: (seatIndex: number, amount: number) => void;
     addChip: (seatIndex: number, denom: number) => void;
     removeChipValue: (seatIndex: number, denom: number) => void;
     removeTopChip: (seatIndex: number) => void;
@@ -51,8 +51,6 @@ interface NoirJackTableProps {
   onDismissError: () => void;
   modeToggle: React.ReactNode;
 }
-
-const CHIP_VALUES: ChipDenomination[] = [1, 5, 25, 100, 500];
 
 const CELEBRATIONS_STORAGE_KEY = "noirjack.celebrations";
 const CELEBRATION_SOUND_COOLDOWN_MS = 320;
@@ -366,7 +364,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   onDismissError,
   modeToggle,
 }) => {
-  const [activeChip, setActiveChip] = React.useState<ChipDenomination>(25);
   const [coachMessage, setCoachMessage] = React.useState<{
     tone: "correct" | "better";
     text: string;
@@ -374,17 +371,10 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const [flashAction, setFlashAction] = React.useState<Action | null>(null);
   const messageTimer = React.useRef<number | null>(null);
   const highlightTimer = React.useRef<number | null>(null);
-  const [chipMotion, setChipMotion] = React.useState<{
-    value: ChipDenomination;
-    type: "add" | "remove";
-    stamp: number;
-  } | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
   const vibrate = useHaptics(prefersReducedMotion);
   const isMobile = useMediaQuery("(max-width: 480px)");
-  const chipSheetId = React.useId();
   const settingsSheetId = React.useId();
-  const [chipsOpen, setChipsOpen] = React.useState(false);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [hasStoredCelebrations, setHasStoredCelebrations] = React.useState<boolean>(
     () => readCelebrationsPreference() !== null
@@ -447,12 +437,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   }, []);
 
   React.useEffect(() => {
-    if (!isMobile) {
-      setChipsOpen(false);
-    }
-  }, [isMobile]);
-
-  React.useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -501,20 +485,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       fireworksRef.current?.stop();
     }
   }, [celebrationsEnabled]);
-
-  React.useEffect(() => {
-    if (!chipsOpen || !isMobile) {
-      return;
-    }
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setChipsOpen(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [chipsOpen, isMobile]);
 
   const seat = game.seats[PRIMARY_SEAT_INDEX] ?? null;
   const activeHand = findActiveHand(game);
@@ -679,91 +649,36 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     [actionContext, game]
   );
 
-  const handleAddChip = React.useCallback(
-    (value: ChipDenomination) => {
-      if (game.phase !== "betting" || !seat) {
-        audioService.play("invalid");
+  const handleBetChange = React.useCallback(
+    (next: number) => {
+      if (game.phase !== "betting") {
         return;
       }
-      const nextBet = seat.baseBet + value;
-      if (nextBet > game.rules.maxBet || nextBet > game.bankroll) {
-        audioService.play("invalid");
-        return;
+      if (!seat?.occupied) {
+        actions.sit(PRIMARY_SEAT_INDEX);
       }
-      actions.addChip(PRIMARY_SEAT_INDEX, value);
-      audioService.play("chipAdd");
-      vibrate();
-      setChipMotion({ value, type: "add", stamp: Date.now() });
+      actions.setBet(PRIMARY_SEAT_INDEX, next);
     },
-    [actions, game.bankroll, game.phase, game.rules.maxBet, seat, vibrate]
+    [actions, game.phase, seat]
   );
 
-  const handleRemoveChipValue = React.useCallback(
-    (value: ChipDenomination) => {
-      if (game.phase !== "betting" || !seat || seat.baseBet <= 0) {
-        audioService.play("invalid");
+  const handleBetCommit = React.useCallback(
+    (delta: number) => {
+      if (delta === 0) {
         return;
       }
-      actions.removeChipValue(PRIMARY_SEAT_INDEX, value);
-      audioService.play("chipRemove");
+      audioService.play(delta > 0 ? "chipAdd" : "chipRemove");
       vibrate();
-      setChipMotion({ value, type: "remove", stamp: Date.now() });
     },
-    [actions, game.phase, seat, vibrate]
+    [vibrate]
   );
 
-  const handleRemoveTopChip = React.useCallback(() => {
-    if (game.phase !== "betting" || !seat || seat.baseBet <= 0) {
-      audioService.play("invalid");
-      return;
-    }
-    actions.removeTopChip(PRIMARY_SEAT_INDEX);
-    audioService.play("chipRemove");
+  const handleBetBlocked = React.useCallback(() => {
+    audioService.play("invalid");
     vibrate();
-    setChipMotion({ value: activeChip, type: "remove", stamp: Date.now() });
-  }, [actions, activeChip, game.phase, seat, vibrate]);
+  }, [vibrate]);
 
-  const closeChipSheet = React.useCallback(() => setChipsOpen(false), []);
-
-  const handleSelectChip = React.useCallback(
-    (value: ChipDenomination) => {
-      setActiveChip(value);
-      handleAddChip(value);
-      if (isMobile) {
-        setChipsOpen(false);
-      }
-    },
-    [handleAddChip, isMobile]
-  );
-
-  const handleChipRemoval = React.useCallback(
-    (value: ChipDenomination) => {
-      setActiveChip(value);
-      handleRemoveChipValue(value);
-      if (isMobile) {
-        setChipsOpen(false);
-      }
-    },
-    [handleRemoveChipValue, isMobile]
-  );
-
-  const handleAddActiveChip = React.useCallback(() => {
-    handleAddChip(activeChip);
-    if (isMobile) {
-      setChipsOpen(false);
-    }
-  }, [activeChip, handleAddChip, isMobile]);
-
-  const handleRemoveActiveChip = React.useCallback(() => {
-    handleChipRemoval(activeChip);
-  }, [activeChip, handleChipRemoval]);
-
-  const handleUndoChip = React.useCallback(() => {
-    handleRemoveTopChip();
-    if (isMobile) {
-      setChipsOpen(false);
-    }
-  }, [handleRemoveTopChip, isMobile]);
+  const handleBetUndo = React.useCallback(() => undefined, []);
 
   const [insuranceHandId, insuranceAmount] = React.useMemo(() => {
     if (game.phase !== "insurance" || !seat) {
@@ -792,10 +707,10 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   }, [showInsuranceSheet, wasInsuranceOpen]);
 
   React.useEffect(() => {
-    if (chipsOpen || showInsuranceSheet || settingsOpen) {
+    if (showInsuranceSheet || settingsOpen) {
       fireworksRef.current?.stop();
     }
-  }, [chipsOpen, showInsuranceSheet, settingsOpen]);
+  }, [showInsuranceSheet, settingsOpen]);
 
   const takeInsurance = React.useCallback(() => {
     if (!insuranceHandId) {
@@ -1060,76 +975,6 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       control !== null
   );
 
-  const renderChipTray = (options?: {
-    closable?: boolean;
-  }): React.ReactNode => (
-    <>
-      <div className="nj-controls__tray-header">
-        <span>Chips</span>
-        <div className="nj-controls__tray-meta">
-          <span>{formatCurrency(seat?.baseBet ?? 0)}</span>
-          {options?.closable ? (
-            <button
-              type="button"
-              className="nj-chip-sheet__close"
-              onClick={closeChipSheet}
-            >
-              Close
-            </button>
-          ) : null}
-        </div>
-      </div>
-      <div className="nj-chip-row">
-        {CHIP_VALUES.map((value) => (
-          <Chip
-            key={value}
-            value={value}
-            size={56}
-            selected={activeChip === value}
-            onClick={() => handleSelectChip(value)}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              handleChipRemoval(value);
-            }}
-            aria-label={`Select ${value} chip`}
-            data-chip-motion={
-              chipMotion?.value === value
-                ? `${chipMotion.type}-${chipMotion.stamp}`
-                : undefined
-            }
-            className="nj-chip"
-          />
-        ))}
-      </div>
-      <div className="nj-tray-actions">
-        <button
-          type="button"
-          className="nj-btn"
-          onClick={handleAddActiveChip}
-          disabled={game.phase !== "betting"}
-        >
-          Add {activeChip}
-        </button>
-        <button
-          type="button"
-          className="nj-btn nj-btn--ghost"
-          onClick={handleRemoveActiveChip}
-          disabled={game.phase !== "betting" || (seat?.baseBet ?? 0) <= 0}
-        >
-          Remove
-        </button>
-        <button
-          type="button"
-          className="nj-btn nj-btn--ghost"
-          onClick={handleUndoChip}
-          disabled={game.phase !== "betting" || (seat?.baseBet ?? 0) <= 0}
-        >
-          Undo last
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <div className="noirjack-app">
       <FireworksOverlay
@@ -1267,42 +1112,20 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       <div className="nj-controls nj-sticky-bottom">
         <div className="nj-controls__layout">
           <div className="nj-controls__tray-slot">
-            {isMobile ? (
-              <>
-                <button
-                  type="button"
-                  className="nj-btn nj-btn-primary nj-chip-trigger"
-                  onClick={() => setChipsOpen((open) => !open)}
-                  aria-expanded={chipsOpen}
-                  aria-controls={chipSheetId}
-                >
-                  Chips
-                </button>
-                {chipsOpen && (
-                  <div
-                    className="nj-chip-sheet"
-                    id={chipSheetId}
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Select chips"
-                  >
-                    <button
-                      type="button"
-                      className="nj-chip-sheet__backdrop"
-                      aria-label="Close chips menu"
-                      onClick={closeChipSheet}
-                    />
-                    <div className="nj-controls__tray nj-glass nj-chip-sheet__panel">
-                      {renderChipTray({ closable: true })}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="nj-controls__tray nj-glass">
-                {renderChipTray()}
-              </div>
-            )}
+            <div className="nj-bet-control__wrapper">
+              <BetControl
+                amount={seat?.baseBet ?? 0}
+                min={game.rules.minBet}
+                max={game.rules.maxBet}
+                bankroll={game.bankroll}
+                disabled={game.phase !== "betting"}
+                prefersReducedMotion={prefersReducedMotion}
+                onChange={handleBetChange}
+                onCommit={handleBetCommit}
+                onBlocked={handleBetBlocked}
+                onUndo={handleBetUndo}
+              />
+            </div>
           </div>
           <div className="nj-controls__actions nj-glass">
             <div className="nj-actions-primary">

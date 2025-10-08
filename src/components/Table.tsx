@@ -14,6 +14,7 @@ interface TableProps {
   actions: {
     sit: (seatIndex: number) => void;
     leave: (seatIndex: number) => void;
+    setBet: (seatIndex: number, amount: number) => void;
     addChip: (seatIndex: number, denom: number) => void;
     removeChipValue: (seatIndex: number, denom: number) => void;
     removeTopChip: (seatIndex: number) => void;
@@ -107,6 +108,7 @@ export const Table: React.FC<TableProps> = ({ game, coachMode, actions, onCoachM
     () => ({
       sit: restrictSeatAction(actions.sit),
       leave: restrictSeatAction(actions.leave),
+      setBet: restrictSeatAction(actions.setBet),
       addChip: restrictSeatAction(actions.addChip),
       removeChipValue: restrictSeatAction(actions.removeChipValue),
       removeTopChip: restrictSeatAction(actions.removeTopChip),

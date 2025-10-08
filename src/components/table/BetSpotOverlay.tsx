@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { ChipSVG } from "./ChipSVG";
 import type { ChipDenomination } from "../../theme/palette";
 import { palette } from "../../theme/palette";
+import { makeChange } from "../../utils/chips";
 import { defaultTableAnchors, toPixels } from "./coords";
 import type { GameState, Seat } from "../../engine/types";
 import { formatCurrency } from "../../utils/currency";
@@ -77,7 +78,7 @@ export const BetSpotOverlay: React.FC<BetSpotOverlayProps> = ({
         const { x, y } = toPixels(anchor.x, anchor.y, dimensions);
         const scaleX = dimensions.width / defaultTableAnchors.viewBox.width;
         const circleSize = defaultTableAnchors.seatRadius * 2 * scaleX;
-        const chipStack = Array.isArray(seat.chips) ? seat.chips : [];
+        const chipStack = makeChange(seat.baseBet);
         const showSit = !isSingleSeatMode && isBettingPhase && !seat.occupied;
         const showLeave = !isSingleSeatMode && seat.occupied && isBettingPhase;
         const visibleStart = Math.max(0, chipStack.length - MAX_VISIBLE_CHIPS);
