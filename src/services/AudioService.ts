@@ -16,7 +16,8 @@ export type SoundKey =
   | "split"
   | "surrender"
   | "insurancePrompt"
-  | "invalid";
+  | "invalid"
+  | "celebration";
 
 export interface SoundDefinition {
   src: string;

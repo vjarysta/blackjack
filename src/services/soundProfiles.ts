@@ -22,6 +22,7 @@ import splitSoft from "../assets/audio/3 Card Playing FX2_2.wav";
 import surrenderSoft from "../assets/audio/1 Card Playing FX2_4.wav";
 import insuranceSoft from "../assets/audio/Card Dealing FX 1.wav";
 import invalidSoft from "../assets/audio/0 Card Playing FX2_3.wav";
+import celebrationBurst from "../assets/audio/Card Deal 4.wav"; // TODO: Replace with a proper fireworks SFX (soft layered "whoosh + pop")
 
 export const classicSoundProfile: SoundProfile = {
   id: "classic",
@@ -42,7 +43,8 @@ export const classicSoundProfile: SoundProfile = {
     double: { src: classicDeal, volume: 0.38 },
     split: { src: classicFlip, volume: 0.32 },
     surrender: { src: classicInsurance, volume: 0.34 },
-    invalid: { src: classicPush, volume: 0.3 }
+    invalid: { src: classicPush, volume: 0.3 },
+    celebration: { src: celebrationBurst, volume: 0.52 }
   }
 };
 
@@ -65,6 +67,7 @@ export const noirSoundProfile: SoundProfile = {
     split: { src: splitSoft, volume: 0.32 },
     surrender: { src: surrenderSoft, volume: 0.3 },
     insurancePrompt: { src: insuranceSoft, volume: 0.32 },
-    invalid: { src: invalidSoft, volume: 0.28 }
+    invalid: { src: invalidSoft, volume: 0.28 },
+    celebration: { src: celebrationBurst, volume: 0.45 }
   }
 };
