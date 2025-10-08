@@ -19,6 +19,10 @@ import { ResultToast, type ResultKind } from "./ResultToast";
 import { NoirJackResultToaster } from "./NoirJackResultToaster";
 import { audioService } from "../../services/AudioService";
 import { NoirSoundControls } from "./NoirSoundControls";
+import {
+  FireworksOverlay,
+  type FireworksOverlayHandle,
+} from "../effects/FireworksOverlay";
 import logoImage from "../../assets/images/logo.png";
 
 interface NoirJackTableProps {
@@ -49,6 +53,49 @@ interface NoirJackTableProps {
 }
 
 const CHIP_VALUES: ChipDenomination[] = [1, 5, 25, 100, 500];
+
+const CELEBRATIONS_STORAGE_KEY = "noirjack.celebrations";
+const CELEBRATION_SOUND_COOLDOWN_MS = 320;
+
+const getSystemPrefersReducedMotion = (): boolean => {
+  if (typeof window === "undefined" || !window.matchMedia) {
+    return false;
+  }
+  try {
+    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    return false;
+  }
+};
+
+const readCelebrationsPreference = (): boolean | null => {
+  if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+    return null;
+  }
+  try {
+    const stored = window.localStorage.getItem(CELEBRATIONS_STORAGE_KEY);
+    if (stored === null) {
+      return null;
+    }
+    return stored === "true";
+  } catch {
+    return null;
+  }
+};
+
+const persistCelebrationsPreference = (enabled: boolean): void => {
+  if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(
+      CELEBRATIONS_STORAGE_KEY,
+      enabled ? "true" : "false"
+    );
+  } catch {
+    // ignore persistence errors
+  }
+};
 
 const hasReadySeat = (game: GameState): boolean => {
   const seat = game.seats[PRIMARY_SEAT_INDEX];
@@ -92,14 +139,7 @@ const usePrevious = <T,>(value: T): T | undefined => {
 };
 
 const usePrefersReducedMotion = (): boolean => {
-  const [prefers, setPrefers] = React.useState<boolean>(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return (
-      window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false
-    );
-  });
+  const [prefers, setPrefers] = React.useState<boolean>(getSystemPrefersReducedMotion);
 
   React.useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) {
@@ -107,6 +147,7 @@ const usePrefersReducedMotion = (): boolean => {
     }
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const listener = () => setPrefers(media.matches);
+    listener();
     media.addEventListener("change", listener);
     return () => media.removeEventListener("change", listener);
   }, []);
@@ -342,8 +383,39 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
   const vibrate = useHaptics(prefersReducedMotion);
   const isMobile = useMediaQuery("(max-width: 480px)");
   const chipSheetId = React.useId();
+  const settingsSheetId = React.useId();
   const [chipsOpen, setChipsOpen] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
+  const [hasStoredCelebrations, setHasStoredCelebrations] = React.useState<boolean>(
+    () => readCelebrationsPreference() !== null
+  );
+  const [celebrationsEnabled, setCelebrationsEnabled] = React.useState<boolean>(() => {
+    const stored = readCelebrationsPreference();
+    if (stored !== null) {
+      return stored;
+    }
+    return getSystemPrefersReducedMotion() ? false : true;
+  });
+  const fireworksRef = React.useRef<FireworksOverlayHandle | null>(null);
+  const celebrationSoundAtRef = React.useRef<number>(0);
   const messageCountRef = React.useRef<number>(game.messageLog.length);
+
+  const toggleSettings = React.useCallback(() => {
+    setSettingsOpen((open) => !open);
+  }, []);
+
+  const closeSettings = React.useCallback(() => {
+    setSettingsOpen(false);
+  }, []);
+
+  const toggleCelebrations = React.useCallback(() => {
+    setCelebrationsEnabled((value) => {
+      const next = !value;
+      persistCelebrationsPreference(next);
+      setHasStoredCelebrations(true);
+      return next;
+    });
+  }, [setHasStoredCelebrations]);
 
   React.useEffect(() => {
     if (messageTimer.current) {
@@ -379,6 +451,56 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       setChipsOpen(false);
     }
   }, [isMobile]);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== CELEBRATIONS_STORAGE_KEY || event.storageArea !== window.localStorage) {
+        return;
+      }
+      if (event.newValue === null) {
+        setHasStoredCelebrations(false);
+        const fallback = getSystemPrefersReducedMotion() ? false : true;
+        setCelebrationsEnabled(fallback);
+        return;
+      }
+      const parsed = event.newValue === "true";
+      setHasStoredCelebrations(true);
+      setCelebrationsEnabled(parsed);
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  React.useEffect(() => {
+    if (hasStoredCelebrations) {
+      return;
+    }
+    const desired = prefersReducedMotion ? false : true;
+    setCelebrationsEnabled((current) => (current === desired ? current : desired));
+  }, [prefersReducedMotion, hasStoredCelebrations]);
+
+  React.useEffect(() => {
+    if (!settingsOpen) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSettingsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [settingsOpen]);
+
+  React.useEffect(() => {
+    if (!celebrationsEnabled) {
+      fireworksRef.current?.stop();
+    }
+  }, [celebrationsEnabled]);
 
   React.useEffect(() => {
     if (!chipsOpen || !isMobile) {
@@ -669,6 +791,12 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
     }
   }, [showInsuranceSheet, wasInsuranceOpen]);
 
+  React.useEffect(() => {
+    if (chipsOpen || showInsuranceSheet || settingsOpen) {
+      fireworksRef.current?.stop();
+    }
+  }, [chipsOpen, showInsuranceSheet, settingsOpen]);
+
   const takeInsurance = React.useCallback(() => {
     if (!insuranceHandId) {
       return;
@@ -718,9 +846,39 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
       const summary = summarizeSettlement(game);
       if (summary) {
         ResultToast.show(summary.kind, summary.amount, summary.details);
+        if (
+          celebrationsEnabled &&
+          (summary.kind === "win" || summary.kind === "blackjack")
+        ) {
+          const overlay = fireworksRef.current;
+          if (overlay) {
+            const duration = prefersReducedMotion
+              ? summary.kind === "blackjack"
+                ? 2600
+                : 2200
+              : summary.kind === "blackjack"
+              ? 3800
+              : 3200;
+            overlay.start(duration);
+            const now =
+              typeof performance !== "undefined"
+                ? performance.now()
+                : Date.now();
+            if (now - celebrationSoundAtRef.current >= CELEBRATION_SOUND_COOLDOWN_MS) {
+              celebrationSoundAtRef.current = now;
+              audioService.play("celebration");
+            }
+          }
+        }
       }
     }
-  }, [game, prevPhase]);
+  }, [game, prevPhase, celebrationsEnabled, prefersReducedMotion]);
+
+  React.useEffect(() => {
+    if (game.phase !== "settlement" && prevPhase === "settlement") {
+      fireworksRef.current?.stop();
+    }
+  }, [game.phase, prevPhase]);
 
   const dealerCards = game.dealer.hand.cards;
   const faceDownIndexes = React.useMemo(() => {
@@ -974,6 +1132,11 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
 
   return (
     <div className="noirjack-app">
+      <FireworksOverlay
+        ref={fireworksRef}
+        disabled={!celebrationsEnabled}
+        intensity={prefersReducedMotion ? "reduced" : "default"}
+      />
       <NoirJackResultToaster isMobile={isMobile} />
       <div className="noirjack-felt" />
       <div className="noirjack-content">
@@ -998,6 +1161,10 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
                 type="button"
                 className="nj-btn nj-btn--ghost"
                 aria-label="Table settings"
+                onClick={toggleSettings}
+                aria-expanded={settingsOpen}
+                aria-controls={settingsSheetId}
+                aria-haspopup="dialog"
               >
                 <Settings2 size={18} aria-hidden="true" />
               </button>
@@ -1232,8 +1399,62 @@ export const NoirJackTable: React.FC<NoirJackTableProps> = ({
               </div>
             )}
           </div>
-        </div>
       </div>
+    </div>
+
+      {settingsOpen && (
+        <div
+          className="nj-settings"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${settingsSheetId}-title`}
+        >
+          <button
+            type="button"
+            className="nj-settings__backdrop"
+            aria-label="Close settings"
+            onClick={closeSettings}
+          />
+          <div className="nj-settings__panel nj-glass" id={settingsSheetId}>
+            <div className="nj-settings__header">
+              <h2 id={`${settingsSheetId}-title`}>Settings</h2>
+              <button
+                type="button"
+                className="nj-settings__close"
+                onClick={closeSettings}
+              >
+                Close
+              </button>
+            </div>
+            <div className="nj-settings__section">
+              <div className="nj-settings__row">
+                <div className="nj-settings__info">
+                  <span className="nj-settings__label">Celebrations</span>
+                  <span className="nj-settings__description">
+                    Fireworks play when you win a round.
+                  </span>
+                  {prefersReducedMotion ? (
+                    <span className="nj-settings__note">
+                      System reduced motion disables celebrations by default.
+                    </span>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className={cn(
+                    "nj-settings__toggle",
+                    celebrationsEnabled && "nj-settings__toggle--on"
+                  )}
+                  onClick={toggleCelebrations}
+                  aria-pressed={celebrationsEnabled}
+                >
+                  <span>{celebrationsEnabled ? "On" : "Off"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showInsuranceSheet && (
         <div
