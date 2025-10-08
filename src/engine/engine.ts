@@ -344,6 +344,10 @@ export const playerHit = (state: GameState): void => {
     hand.isResolved = true;
     appendLog(state, `Seat ${hand.parentSeatIndex + 1} busts`);
     moveToNextHand(state);
+  } else if (bestTotal(hand) === 21) {
+    hand.isResolved = true;
+    appendLog(state, `Seat ${hand.parentSeatIndex + 1} stands on 21`);
+    moveToNextHand(state);
   }
 };
 
