@@ -9,6 +9,7 @@ import type { ChipDenomination } from "../../theme/palette";
 import { ChipTray } from "../hud/ChipTray";
 import { RoundActionBar, type CoachFeedback } from "../hud/RoundActionBar";
 import { CoachFeedbackPanel } from "../hud/CoachFeedbackPanel";
+import { LastWin } from "../hud/LastWin";
 import { filterSeatsForMode, isSingleSeatMode } from "../../ui/config";
 import { ResultBanner, type ResultKind } from "./ResultBanner";
 import type { CoachMode } from "../../store/useGameStore";
@@ -376,21 +377,26 @@ export const TableLayout: React.FC<TableLayoutProps> = ({
             <ChipTray activeChip={activeChip} onSelect={onSelectChip} disabled={game.phase !== "betting"} />
           </div>
           <div className="flex flex-1 justify-end">
-            <RoundActionBar
-              game={game}
-              coachMode={coachMode}
-              feedback={coachFeedback}
-              onCoachFeedback={showCoachFeedback}
-              onDeal={onDeal}
-              onFinishInsurance={onFinishInsurance}
-              onPlayDealer={onPlayDealer}
-              onNextRound={handleNextRound}
-              onHit={onHit}
-              onStand={onStand}
-              onDouble={onDouble}
-              onSplit={onSplit}
-              onSurrender={onSurrender}
-            />
+            <div className="flex items-center gap-4">
+              {game.phase === "settlement" && game.lastWin && game.lastWin > 0 && (
+                <LastWin amount={game.lastWin} />
+              )}
+              <RoundActionBar
+                game={game}
+                coachMode={coachMode}
+                feedback={coachFeedback}
+                onCoachFeedback={showCoachFeedback}
+                onDeal={onDeal}
+                onFinishInsurance={onFinishInsurance}
+                onPlayDealer={onPlayDealer}
+                onNextRound={handleNextRound}
+                onHit={onHit}
+                onStand={onStand}
+                onDouble={onDouble}
+                onSplit={onSplit}
+                onSurrender={onSurrender}
+              />
+            </div>
           </div>
         </div>
       </div>

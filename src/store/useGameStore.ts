@@ -28,6 +28,7 @@ import { ANIM, DEAL_STAGGER, REDUCED } from "../utils/animConstants";
 const BANKROLL_KEY = "blackjack_bankroll";
 const SEATS_KEY = "blackjack_seats";
 const COACH_MODE_KEY = "blackjack_coach_mode";
+const LAST_WIN_KEY = "blackjack_last_win";
 
 export type CoachMode = "off" | "feedback" | "live";
 
@@ -48,6 +49,11 @@ const persistState = (state: GameState): void => {
     chips: seat.chips ?? []
   }));
   localStorage.setItem(SEATS_KEY, JSON.stringify(seats));
+  if (state.lastWin !== null) {
+    localStorage.setItem(LAST_WIN_KEY, state.lastWin.toString());
+  } else {
+    localStorage.removeItem(LAST_WIN_KEY);
+  }
 };
 
 const hydrateGame = (): GameState => {
@@ -83,6 +89,13 @@ const hydrateGame = (): GameState => {
       });
     } catch {
       // ignore hydration failures
+    }
+  }
+  const storedLastWin = localStorage.getItem(LAST_WIN_KEY);
+  if (storedLastWin) {
+    const parsed = Number.parseFloat(storedLastWin);
+    if (!Number.isNaN(parsed)) {
+      base.lastWin = parsed;
     }
   }
   if (isSingleSeatMode) {
