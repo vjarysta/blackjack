@@ -16,7 +16,7 @@ interface TopbarProps {
   onOpenSettings(): void;
   settingsOpen: boolean;
   settingsSheetId: string;
-  modeToggle: React.ReactNode;
+  modeToggle?: React.ReactNode;
   stats: TopbarStat[];
   error: string | null;
   onDismissError(): void;
@@ -74,7 +74,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           </button>
         </div>
       </div>
-      <div className="nj-topbar__mode">{modeToggle}</div>
+      {modeToggle ? <div className="nj-topbar__mode">{modeToggle}</div> : null}
       <div className="nj-topbar__stats nj-glass">
         {stats.map((item) => (
           <div key={item.label} className="nj-stat">

@@ -75,7 +75,7 @@ These modules are pure TypeScript (no React). React components interact through 
 ## UI Structure
 
 - `src/store/useGameStore.ts` – Zustand store with hydration (`localStorage`), error handling, and action wrappers.
-- `src/components/` – React components, including the casino table surface (`table/` folder), rule badges, and shadcn/ui primitives.
+- `src/components/` – React components, including the NoirJack table experience under `src/components/noirjack/` and shared shadcn/ui primitives.
 - `src/pages/App.tsx` – top-level page wiring state and layout.
 - `src/services/AudioService.ts` – stubbed audio service ready for future SFX.
 
@@ -108,7 +108,7 @@ After editing, no rebuild is required—Vite hot reloads rule changes.
 ## Casino Table UI
 
 - **Dependencies**: the felt table uses `@iconify/react` and `@iconify-json/game-icons` for shoe/discard icons and card backs. Install with `npm install @iconify/react @iconify-json/game-icons` (already included).
-- **Colours & layout**: tweak felt, chip, and gold accents in `src/theme/palette.ts`. Seat arcs, dealer area, and curved text paths live in `src/components/table/coords.ts`.
+- **Colours & layout**: tweak NoirJack palettes in `src/theme/palette.ts`. Component styling and layout live alongside the feature in `src/components/noirjack/`.
 - **Chip interaction**: pick a denomination from the chip tray (bottom toolbar), then left-click a bet circle to add that chip or right-click to remove it (context menu is suppressed). Seats auto-sit when you place the first chip and can be left via the “Leave” control during betting.
 - **Icons**: all decorative icons (shoe, discard tray, card back emblem) are sourced from the `game-icons` Iconify collection.
 
