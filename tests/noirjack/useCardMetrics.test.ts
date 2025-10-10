@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeCardMetrics } from "../../../src/components/mobile/hooks";
+import { computeCardMetrics } from "../../src/components/noirjack/hooks/useCardMetrics";
 
 describe("computeCardMetrics", () => {
   it("limits card width when viewport height is tight", () => {

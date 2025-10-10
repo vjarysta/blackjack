@@ -1,14 +1,9 @@
 import React from "react";
-import { Table } from "../components/Table";
 import { useGameStore } from "../store/useGameStore";
-import { Button } from "../components/ui/button";
 import { isSingleSeatMode, PRIMARY_SEAT_INDEX } from "../ui/config";
 import { NoirJackTable } from "../components/noirjack/NoirJackTable";
-import { useDisplayMode } from "../ui/displayMode";
-import { UIModeToggle } from "../components/UIModeToggle";
-import type { DisplayMode } from "../ui/displayMode";
 import { audioService } from "../services/AudioService";
-import { classicSoundProfile, noirSoundProfile } from "../services/soundProfiles";
+import { noirSoundProfile } from "../services/soundProfiles";
 
 export const App: React.FC = () => {
   const {
@@ -34,7 +29,6 @@ export const App: React.FC = () => {
     playDealer,
     nextRound
   } = useGameStore();
-  const [displayMode, setDisplayMode] = useDisplayMode();
 
   React.useEffect(() => {
     if (typeof window === "undefined") {
@@ -50,12 +44,8 @@ export const App: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (displayMode === "noirjack") {
-      audioService.useProfile(noirSoundProfile);
-    } else {
-      audioService.useProfile(classicSoundProfile);
-    }
-  }, [displayMode]);
+    audioService.useProfile(noirSoundProfile);
+  }, []);
 
   React.useEffect(() => {
     if (!isSingleSeatMode) {
@@ -91,53 +81,24 @@ export const App: React.FC = () => {
     nextRound
   };
 
-  const modeToggle = (
-    <UIModeToggle
-      mode={displayMode}
-      onChange={(mode: DisplayMode) => {
-        setDisplayMode(mode);
-      }}
-    />
-  );
-
   React.useEffect(() => {
     if (typeof document === "undefined") {
       return;
     }
-    document.body.classList.toggle("skin-noirjack", displayMode === "noirjack");
+    document.body.classList.add("skin-noirjack");
     return () => {
       document.body.classList.remove("skin-noirjack");
     };
-  }, [displayMode]);
-
-  if (displayMode === "noirjack") {
-    return (
-      <NoirJackTable
-        game={game}
-        coachMode={coachMode}
-        actions={actions}
-        onCoachModeChange={setCoachMode}
-        error={error}
-        onDismissError={clearError}
-        modeToggle={modeToggle}
-      />
-    );
-  }
+  }, []);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-emerald-950 via-emerald-900 to-emerald-950 p-6 text-emerald-50">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] w-full max-w-[1400px] flex-col gap-4">
-        <div className="flex items-center justify-end">{modeToggle}</div>
-        {error && (
-          <div className="flex items-center justify-between rounded-md border border-rose-600 bg-rose-900/60 px-4 py-2 text-sm">
-            <span>{error}</span>
-            <Button variant="ghost" size="sm" onClick={clearError}>
-              Dismiss
-            </Button>
-          </div>
-        )}
-        <Table game={game} coachMode={coachMode} actions={actions} onCoachModeChange={setCoachMode} />
-      </div>
-    </main>
+    <NoirJackTable
+      game={game}
+      coachMode={coachMode}
+      actions={actions}
+      onCoachModeChange={setCoachMode}
+      error={error}
+      onDismissError={clearError}
+    />
   );
 };

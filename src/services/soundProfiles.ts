@@ -1,11 +1,4 @@
 import { type SoundProfile } from "./AudioService";
-import classicChip from "../assets/audio/2 Card Playing FX2_1.wav";
-import classicDeal from "../assets/audio/Card Deal 2.wav";
-import classicFlip from "../assets/audio/Card Slide 1.wav";
-import classicInsurance from "../assets/audio/Card Slide 2.wav";
-import classicLose from "../assets/audio/Card Slap 3.wav";
-import classicPush from "../assets/audio/Card Slap 2.wav";
-import classicWin from "../assets/audio/Full deal 1.wav";
 import shuffleSoft from "../assets/audio/Card Dealing FX 2.wav";
 import dealSoft from "../assets/audio/Card Slide 1.wav";
 import flipSoft from "../assets/audio/Card Slide 2.wav";
@@ -23,30 +16,6 @@ import surrenderSoft from "../assets/audio/1 Card Playing FX2_4.wav";
 import insuranceSoft from "../assets/audio/Card Dealing FX 1.wav";
 import invalidSoft from "../assets/audio/0 Card Playing FX2_3.wav";
 import celebrationBurst from "../assets/audio/Card Deal 4.wav"; // TODO: Replace with a proper fireworks SFX (soft layered "whoosh + pop")
-
-export const classicSoundProfile: SoundProfile = {
-  id: "classic",
-  defaultVolume: 0.65,
-  sounds: {
-    deal: { src: classicDeal, volume: 0.35 },
-    flip: { src: classicFlip, volume: 0.35 },
-    chipAdd: { src: classicChip, volume: 0.45 },
-    chipRemove: { src: classicChip, volume: 0.45 },
-    win: { src: classicWin, volume: 0.5 },
-    lose: { src: classicLose, volume: 0.55 },
-    push: { src: classicPush, volume: 0.4 },
-    blackjack: { src: classicWin, volume: 0.52 },
-    bust: { src: classicLose, volume: 0.5 },
-    shuffle: { src: shuffleSoft, volume: 0.5 },
-    insurancePrompt: { src: classicInsurance, volume: 0.45 },
-    button: { src: classicChip, volume: 0.3 },
-    double: { src: classicDeal, volume: 0.38 },
-    split: { src: classicFlip, volume: 0.32 },
-    surrender: { src: classicInsurance, volume: 0.34 },
-    invalid: { src: classicPush, volume: 0.3 },
-    celebration: { src: celebrationBurst, volume: 0.52 }
-  }
-};
 
 export const noirSoundProfile: SoundProfile = {
   id: "noirjack",

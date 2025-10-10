@@ -2,10 +2,10 @@
 
 ## Frontend Architecture
 - The UI is written in React + TypeScript and rendered through Vite. Entry code lives in `src/main.tsx`, which mounts the single view exported from `src/pages/App.tsx`.
-- Layout components are colocated in `src/components`. Visual-only pieces sit under feature folders (e.g., the felt lives in `src/components/table` and HUD widgets in `src/components/hud`). Shared primitives (`Button`, `Card`) reside in `src/components/ui`.
+- Layout components are colocated in `src/components`. Visual-only pieces sit under feature folders (e.g., the NoirJack experience lives in `src/components/noirjack` and HUD widgets in `src/components/hud`). Shared primitives (`Button`, `Card`) reside in `src/components/ui`.
 - Styling is handled with Tailwind utility classes. Prefer class composition over inline styles unless values are dynamic (palette-driven colors, layout calculations, etc.).
-- Table geometry is defined in `src/components/table/coords.ts`. Seat anchors, radii, and arc math should stay centralized there so the SVG, overlays, and card layers remain in sync.
-- The felt stage is scaled responsively in `TableLayout`. Any change to `BASE_W`/`BASE_H` or padding should be reflected in the layout tests under `tests/e2e/table.spec.ts` so regressions are caught automatically.
+- NoirJack layout logic lives alongside the feature in `src/components/noirjack`. Keep seat anchors, radii, and animation helpers centralized so the overlays and card layers remain in sync.
+- The felt stage is scaled responsively inside the NoirJack table. Any change to its base geometry or padding should be reflected in the layout tests under `tests/e2e/table.spec.ts` so regressions are caught automatically.
 - Playing card visuals are rendered via `PlayingCard.tsx` which uses Iconify suit glyphs. Update the palette values in `src/theme/palette.ts` if suit colours or materials change instead of hard-coding new hex codes in the component tree.
 
 ## Game Engine & State
@@ -30,10 +30,10 @@ Write modern TypeScript with React function components. Follow the existing two-
 
 ## Coding Conventions
 - Use modern React function components with hooks; no class components.
-- Keep indentation at two spaces. Exports should be named (`export const TableLayout`) to align with the existing pattern.
+- Keep indentation at two spaces. Exports should be named (`export const NoirJackTable`) to align with the existing pattern.
 - When composing Tailwind classes conditionally, prefer the helper in `src/utils/cn.ts`.
 - Avoid adding try/catch around imports and keep error handling declarative; bubbling errors through the Zustand store is preferred.
-- When introducing new visual primitives, colocate them with the feature that consumes them (e.g. table-specific cards live in `src/components/table`). Only promote to `components/ui` when they are reused across modules.
+- When introducing new visual primitives, colocate them with the feature that consumes them (e.g. NoirJack-specific cards live in `src/components/noirjack`). Only promote to `components/ui` when they are reused across modules.
 - Snapshot-style screenshots go under `artifacts/` when captured via the browser container so they can be attached to PRs.
 
 ## Version Control & PRs

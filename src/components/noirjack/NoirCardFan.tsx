@@ -1,7 +1,7 @@
 import React from "react";
 import type { Card } from "../../engine/types";
 import { NoirCard } from "./NoirCard";
-import { useCardMetrics, useResizeObserver } from "../mobile/hooks";
+import { useCardMetrics, useResizeObserver } from "./hooks/useCardMetrics";
 import { cn } from "../../utils/cn";
 
 interface NoirCardFanProps {

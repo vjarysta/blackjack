@@ -61,7 +61,7 @@ interface NoirJackTableProps {
   onCoachModeChange: (mode: CoachMode) => void;
   error: string | null;
   onDismissError: () => void;
-  modeToggle: React.ReactNode;
+  modeToggle?: React.ReactNode;
 }
 
 const CHIP_VALUES: ChipDenomination[] = [1, 5, 25, 100, 500];
